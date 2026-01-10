@@ -1,0 +1,227 @@
+package net.yixi_xun.affix_core.affix;
+
+import net.minecraft.nbt.*;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraftforge.event.entity.living.LivingHurtEvent;
+import net.minecraftforge.event.entity.living.MobEffectEvent;
+import net.minecraftforge.eventbus.api.Event;
+import net.minecraftforge.registries.ForgeRegistries;
+
+import java.util.*;
+
+/**
+ * 词缀执行上下文，包含事件信息和变量映射
+ */
+public class AffixContext {
+    private final Level world;
+    private final LivingEntity owner; // 词缀物品的持有者
+    private final ItemStack itemStack; // 带有词缀的物品
+    private final int affixIndex; // 词缀在物品NBT列表中的索引
+    private final Set<String> trigger; // 触发器类型
+
+    // 事件特定信息
+    private final Event event;
+
+    // 变量映射，用于表达式计算
+    private final Map<String, Object> variables = new HashMap<>();
+
+    public AffixContext(Level world, LivingEntity owner, ItemStack itemStack, Affix affix, String trigger, Event event) {
+        this.world = world;
+        this.owner = owner;
+        this.itemStack = itemStack;
+        this.affixIndex = affix.index();
+        this.trigger = Set.of(trigger.split(","));
+        this.event = event;
+
+        // 初始化基本变量
+        variables.put("random", Math.random());
+        variables.put("trigger_count", affix.triggerCount());
+
+        // 初始化实体相关的复杂变量
+        variables.put("self", createEntityData(owner));
+
+        // 根据触发器类型和事件类型初始化特定变量
+        initVariablesFromEvent();
+    }
+
+    // 创建实体数据映射
+    private Map<String, Object> createEntityData(LivingEntity entity) {
+        Map<String, Object> entityData = new HashMap<>();
+
+        // 基本健康状态
+        entityData.put("health", entity.getHealth());
+        entityData.put("max_health", entity.getMaxHealth());
+        entityData.put("absorption", entity.getAbsorptionAmount());
+        entityData.put("level", entity instanceof Player player ? player.experienceLevel : 0);
+
+        // 字符串信息
+        entityData.put("name", entity.getName().getString());
+        ResourceLocation entityKey = ForgeRegistries.ENTITY_TYPES.getKey(entity.getType());
+        entityData.put("id", entityKey != null ? entityKey.toString() : "unknown");
+
+        // 布尔信息
+        entityData.put("is_sprinting", entity.isSprinting() ? 1 : 0);
+        entityData.put("is_sneaking", entity.isCrouching() ? 1 : 0);
+        entityData.put("on_ground", entity.onGround() ? 1 : 0);
+        entityData.put("is_swimming", entity.isSwimming() ? 1 : 0);
+
+        // NBT数据
+        CompoundTag nbt = entity.getPersistentData();
+        entityData.put("nbt", parseNbtCompound(nbt));
+
+        // 将实体对象存储起来，以便按需计算属性和效果
+        entityData.put("entity_ref", entity);
+
+        return entityData;
+    }
+
+    // 解析NBT复合标签
+    private Map<String, Object> parseNbtCompound(CompoundTag compound) {
+        Map<String, Object> result = new HashMap<>();
+
+        for (String key : compound.getAllKeys()) {
+            Tag tag = compound.get(key);
+            result.put(key, parseNbtTag(tag));
+        }
+
+        return result;
+    }
+
+    // 解析NBT标签
+    private Object parseNbtTag(Tag tag) {
+        if (tag instanceof NumericTag numericTag) {
+            return numericTag.getAsDouble();
+        } else if (tag instanceof StringTag stringTag) {
+            return stringTag.getAsString();
+        } else if (tag instanceof CompoundTag compoundTag) {
+            return parseNbtCompound(compoundTag);
+        } else if (tag instanceof ListTag listTag) {
+            // 对于列表，只取数值类型元素的平均值
+            if (!listTag.isEmpty() && listTag.getElementType() == Tag.TAG_ANY_NUMERIC) {
+                double sum = 0;
+                for (int i = 0; i < listTag.size(); i++) {
+                    sum += listTag.getDouble(i);
+                }
+                return sum / listTag.size();
+            }
+            return listTag.size(); // 返回列表大小
+        } else {
+            return tag.getAsString();
+        }
+    }
+
+    /**
+     * 根据事件类型初始化特定变量
+     */
+    private void initVariablesFromEvent() {
+        if (trigger.contains("on_attack") && event instanceof LivingHurtEvent attackEvent) {
+            LivingEntity target = attackEvent.getEntity();
+
+            variables.put("damage", attackEvent.getAmount());
+            variables.put("damage_type", attackEvent.getSource().type().msgId());
+            variables.put("target", createEntityData(target));
+            variables.put("distance", owner.distanceTo(target));
+        }
+        else if (trigger.contains("on_hurt") && event instanceof LivingHurtEvent hurtEvent) {
+            variables.put("damage", hurtEvent.getAmount());
+            variables.put("damage_type", hurtEvent.getSource().type().msgId());
+            if (hurtEvent.getSource().getEntity() instanceof LivingEntity attacker) {
+                variables.put("attacker", createEntityData(attacker));
+                variables.put("distance", owner.distanceTo(attacker));
+            } else {
+                variables.put("attacker", createEntityData(owner)); // 默认为自身
+                variables.put("distance", 0);
+            }
+        }
+        else if (trigger.contains("on_death") && event instanceof LivingDeathEvent deathEvent) {
+            LivingEntity killer = deathEvent.getSource().getEntity() instanceof LivingEntity ?
+                    (LivingEntity) deathEvent.getSource().getEntity() : null;
+            variables.put("damage_type", deathEvent.getSource().type().msgId());
+
+            variables.put("killer", killer != null ? createEntityData(killer) : createEntityData(owner));
+            variables.put("distance", killer != null ? owner.distanceTo(killer) : 0);
+        }
+        else if (trigger.contains("on_kill") && event instanceof LivingDeathEvent deathEvent) {
+            LivingEntity target = deathEvent.getEntity();
+
+            variables.put("target", target != null ? createEntityData(target) : createEntityData(owner));
+            variables.put("distance", owner.distanceTo(target != null ? target : owner));
+        }
+        else if (trigger.contains("on_effect_add") && event instanceof MobEffectEvent.Applicable effectEvent) {
+            variables.put("duration", effectEvent.getEffectInstance().getDuration());
+            variables.put("amplifier", effectEvent.getEffectInstance().getAmplifier());
+        }
+    }
+
+    /**
+     * 添加自定义变量
+     */
+    public void addVariable(String name, Number value) {
+        variables.put(name, value);
+    }
+
+    /**
+     * 获取变量映射
+     */
+    public Map<String, Object> getVariables() {
+        return variables;
+    }
+
+    /**
+     * 检查冷却是否结束
+     */
+    public boolean inCooldown() {
+        return !AffixManager.isCooldownOver(itemStack, affixIndex, world);
+    }
+
+    /**
+     * 设置冷却
+     */
+    public void setCooldown(Long cooldownTicks) {
+        if (cooldownTicks > 0) {
+            AffixManager.setCooldown(itemStack, affixIndex, cooldownTicks, world);
+        }
+    }
+
+    // Getter方法
+    public Level getWorld() {
+        return world;
+    }
+
+    public LivingEntity getOwner() {
+        return owner;
+    }
+
+    public ItemStack getItemStack() {
+        return itemStack;
+    }
+
+    public int getAffixIndex() {
+        return affixIndex;
+    }
+
+    public Set<String> getTrigger() {
+        return trigger;
+    }
+
+    public Event getEvent() {
+        return event;
+    }
+
+    public LivingEntity getTarget() {
+        if (trigger.contains("on_attack") && event instanceof LivingHurtEvent attackEvent)
+            return attackEvent.getEntity();
+        else if (trigger.contains("on_hurt") && event instanceof LivingHurtEvent hurtEvent)
+            return hurtEvent.getSource().getEntity() instanceof LivingEntity target ? target : null;
+        else if (trigger.contains("on_death") && event instanceof LivingDeathEvent deathEvent)
+            return deathEvent.getSource().getEntity() instanceof LivingEntity killer ? killer : null;
+        else if (trigger.contains("on_kill") && event instanceof LivingDeathEvent deathEvent)
+            return deathEvent.getEntity();
+        return owner;
+    }
+}

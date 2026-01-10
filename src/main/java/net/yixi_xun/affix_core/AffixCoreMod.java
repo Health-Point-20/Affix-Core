@@ -1,11 +1,7 @@
 package net.yixi_xun.affix_core;
 
 import com.mojang.logging.LogUtils;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
+import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -13,13 +9,13 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.util.thread.SidedThreadGroups;
-import net.minecraftforge.registries.DeferredRegister;
-import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.registries.RegistryObject;
-import net.minecraftforge.server.ServerLifecycleHooks;
+import net.yixi_xun.affix_core.affix.AffixManager;
+import net.yixi_xun.affix_core.client.ClientEvents;
+import net.yixi_xun.affix_core.network.NetworkManager;
+import net.yixi_xun.affix_core.tooltip.AttributeTooltipHandler;
 import org.slf4j.Logger;
 
 import java.util.AbstractMap;
@@ -34,19 +30,17 @@ public class AffixCoreMod {
     public static final String MODID = "affix_core";
     public static final Logger LOGGER = LogUtils.getLogger();
 
-    public AffixCoreMod(IEventBus modEventBus, ModLoadingContext modLoadingContext) {
-
-        modEventBus.addListener(this::commonSetup);
-
+    @SuppressWarnings("removal")
+    public AffixCoreMod() {
         MinecraftForge.EVENT_BUS.register(this);
 
-        modLoadingContext.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
-    }
+        IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
+        ModLoadingContext modLoadingContext = ModLoadingContext.get();
+        AffixManager.init();
+        NetworkManager.register(); // 注册网络包
+        modLoadingContext.registerConfig(ModConfig.Type.COMMON, AFConfig.SPEC);
 
-    private void commonSetup(final FMLCommonSetupEvent event) {
-        // 初始化词缀系统
-        net.yixi_xun.affix_core.affix.AffixManager.init();
-        LOGGER.info("Affix Core system initialized");
+
     }
 
     private static final Queue<AbstractMap.SimpleEntry<Runnable, Integer>> workQueue = new ArrayDeque<>();
@@ -77,6 +71,17 @@ public class AffixCoreMod {
                     task.getKey().run();
                 }
             }
+        }
+    }
+
+    @Mod.EventBusSubscriber(modid = MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+    public static class ClientModEvents {
+
+        @SubscribeEvent
+        public static void onClientSetup(FMLClientSetupEvent event) {
+            // 注册客户端事件处理器
+            MinecraftForge.EVENT_BUS.register(ClientEvents.class);
+            MinecraftForge.EVENT_BUS.register(AttributeTooltipHandler.class);
         }
     }
 }

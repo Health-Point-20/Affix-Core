@@ -18,6 +18,7 @@ import static net.yixi_xun.affix_core.api.ExpressionHelper.evaluate;
  */
 public class AttributeOperation implements IOperation {
     public static final Map<AttributeModifier, Long> MODIFIERS = new HashMap<>();
+    public static final Map<String, Set<AttributeModifier>> APPLIED_MODIFIERS = new HashMap<>();
 
     private final ResourceLocation attributeId;  // 属性ID
     private final String amountExpression;       // 属性值表达式
@@ -25,14 +26,16 @@ public class AttributeOperation implements IOperation {
     private final String name;                               // 属性修饰符名称
     private final boolean isPermanent;  // 是否永久生效
     private final String durationExpression;
+    private final String target;  // 目标
     
-    public AttributeOperation(ResourceLocation attributeId, String amountExpression, AttributeModifier.Operation operation, String name, boolean isPermanent, String durationExpression) {
+    public AttributeOperation(ResourceLocation attributeId, String amountExpression, AttributeModifier.Operation operation, String name, boolean isPermanent, String durationExpression, String target) {
         this.attributeId = attributeId;
         this.amountExpression = amountExpression;
         this.operation = operation;
         this.name = name;
         this.isPermanent = isPermanent;
         this.durationExpression = durationExpression;
+        this.target = target != null ? target : "self";
     }
 
     @Override
@@ -57,10 +60,17 @@ public class AttributeOperation implements IOperation {
             operation
         );
 
+        // 根据target确定应用到哪个实体
+        var targetEntity = context.getTarget();
+
         // 应用属性修饰符到实体
-        var attributeInstance = context.getOwner().getAttribute(attribute);
+        var attributeInstance = targetEntity.getAttribute(attribute);
         if (attributeInstance != null && attributeInstance.getModifier(uuid) == null) {
             attributeInstance.addTransientModifier(modifier);
+
+            // 将修饰符添加到跟踪集合中，以便稍后可以移除
+            String key = generateKey(context);
+            APPLIED_MODIFIERS.computeIfAbsent(key, k -> new HashSet<>()).add(modifier);
 
             if (!isPermanent) {
                 // 计算持续时间
@@ -68,14 +78,67 @@ public class AttributeOperation implements IOperation {
                 MODIFIERS.put(modifier, context.getWorld().getGameTime() + duration);
                 // 持续时间到后移除
                 queueServerWork(duration, () -> {
-                            if (MODIFIERS.get(modifier) <= context.getWorld().getGameTime()) {
+                            if (MODIFIERS.containsKey(modifier) && MODIFIERS.get(modifier) <= context.getWorld().getGameTime()) {
                                 MODIFIERS.remove(modifier);
                                 attributeInstance.removeModifier(modifier);
+
+                                // 从跟踪集合中移除
+                                APPLIED_MODIFIERS.getOrDefault(key, new HashSet<>()).remove(modifier);
                             }
                         }
                 );
             }
         }
+    }
+
+    /**
+     * 移除此操作应用的所有属性修饰符
+     */
+    public void remove(AffixContext context) {
+        String key = generateKey(context);
+        Set<AttributeModifier> modifiers = APPLIED_MODIFIERS.get(key);
+        if (modifiers == null || modifiers.isEmpty()) {
+            return; // 如果没有应用的修饰符，则直接返回
+        }
+        modifiers = new HashSet<>(modifiers);
+        
+        if (!modifiers.isEmpty()) {
+            // 获取目标实体和属性
+            Attribute attribute = ForgeRegistries.ATTRIBUTES.getValue(attributeId);
+            if (attribute == null) {
+                return;
+            }
+            
+            var targetEntity = context.getTarget();
+            if (targetEntity == null) {
+                return;
+            }
+
+            var attributeInstance = targetEntity.getAttribute(attribute);
+            if (attributeInstance != null) {
+                // 移除所有相关的修饰符
+                for (AttributeModifier modifier : modifiers) {
+                    attributeInstance.removeModifier(modifier);
+                    
+                    // 从全局修饰符映射中也移除（如果存在）
+                    MODIFIERS.remove(modifier);
+                }
+            }
+            
+            // 清空跟踪集合
+            modifiers.clear();
+            APPLIED_MODIFIERS.remove(key);
+        }
+    }
+
+    /**
+     * 生成用于标识此操作应用的唯一键
+     */
+    private String generateKey(AffixContext context) {
+        return context.getOwner().getStringUUID() + "_" + 
+               attributeId.toString() + "_" + 
+               name + "_" + 
+               context.getAffixIndex();
     }
 
     @Override
@@ -86,6 +149,9 @@ public class AttributeOperation implements IOperation {
         nbt.putString("AmountExpression", amountExpression);
         nbt.putInt("Operation", operation.toValue());
         if (name != null) nbt.putString("Name", name);
+        nbt.putString("Target", target);
+        nbt.putBoolean("IsPermanent", isPermanent);
+        nbt.putString("DurationExpression", durationExpression);
         return nbt;
     }
 
@@ -99,7 +165,7 @@ public class AttributeOperation implements IOperation {
      */
     public static AttributeOperation fromNBT(CompoundTag nbt) {
         String attributeStr = nbt.getString("Attribute");
-        ResourceLocation attributeId = ResourceLocation.parse(attributeStr);
+        ResourceLocation attributeId = ResourceLocation.tryParse(attributeStr);
 
         String amountExpression = nbt.contains("AmountExpression") ? nbt.getString("AmountExpression") : "0";
         int operationInt = nbt.contains("Operation") ? nbt.getInt("Operation") : 0;
@@ -108,8 +174,9 @@ public class AttributeOperation implements IOperation {
         String name = nbt.contains("Name") ? nbt.getString("Name") : "Affix Attribute Modifier";
         boolean isPermanent = nbt.contains("IsPermanent") && nbt.getBoolean("IsPermanent");
         String durationExpression = nbt.contains("DurationExpression") ? nbt.getString("DurationExpression") : "0";
+        String target = nbt.contains("Target") ? nbt.getString("Target") : "self";
 
-        return new AttributeOperation(attributeId, amountExpression, operation, name, isPermanent, durationExpression);
+        return new AttributeOperation(attributeId, amountExpression, operation, name, isPermanent, durationExpression, target);
     }
 
     /**
