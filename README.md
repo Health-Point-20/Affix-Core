@@ -1,5 +1,4 @@
-|NEW_FILE_CODE|README.md
-# Affix_Core
+# Affix-Core
 
 [![License: CC BY-SA 4.0](https://img.shields.io/badge/License-Creative%20Commons%20BY--SA%204.0-informational.svg)](https://creativecommons.org/licenses/by-sa/4.0/)
 [![Minecraft Version](https://img.shields.io/badge/Minecraft-1.20.1-brightgreen.svg)](https://minecraft.net/)
