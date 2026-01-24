@@ -2,6 +2,7 @@ package net.yixi_xun.affix_core.api;
 
 import net.minecraftforge.eventbus.api.Cancelable;
 import net.minecraftforge.eventbus.api.Event;
+import net.yixi_xun.affix_core.affix.AffixContext;
 import net.yixi_xun.affix_core.affix.operation.OperationManager;
 
 /**
@@ -11,17 +12,12 @@ public abstract class AffixEvent extends Event {
 
     /**
      * 当操作被注册时触发的事件
-     * 允许其他模组通过此事件注册自己的操作
      */
+    @Cancelable
     public static class OperationRegisterEvent extends AffixEvent {
         private final String operationType;
         private OperationManager.OperationFactory factory;
         private boolean registered = false;
-
-        public OperationRegisterEvent(String operationType) {
-            this.operationType = operationType;
-            this.factory = null;
-        }
 
         public OperationRegisterEvent(String operationType, OperationManager.OperationFactory factory) {
             this.operationType = operationType;
@@ -47,9 +43,16 @@ public abstract class AffixEvent extends Event {
     }
 
     /**
-     * 专门用于让其他模组注册操作的事件
+     * 当注册操作的事件
      */
-    public static class RegisterOperationsEvent extends AffixEvent {
+    public static class RegisterOperationEvent extends AffixEvent {
+
+        public RegisterOperationEvent() {
+        }
+
+       public void registerOperation(String operationType, OperationManager.OperationFactory factory) {
+           OperationManager.registerFactory(operationType, factory);
+       }
     }
 
     /**
