@@ -14,8 +14,8 @@ public class ModifyDamageOperation implements IOperation {
     private final String amountExpression;
     private final String operation;
 
-    public ModifyDamageOperation(String amount, String operation) {
-        this.amountExpression = amount;
+    public ModifyDamageOperation(String amountExpression, String operation) {
+        this.amountExpression = amountExpression;
         this.operation = operation;
     }
 
@@ -49,7 +49,7 @@ public class ModifyDamageOperation implements IOperation {
     public CompoundTag toNBT() {
         CompoundTag nbt = new CompoundTag();
         nbt.putString("Type", getType());
-        nbt.putString("Amount", amountExpression);
+        nbt.putString("AmountExpression", amountExpression);
         nbt.putString("Operation", operation);
         return nbt;
     }
@@ -63,7 +63,7 @@ public class ModifyDamageOperation implements IOperation {
      * 工厂方法，从NBT创建DamageOperation
      */
     public static ModifyDamageOperation fromNBT(CompoundTag nbt) {
-        String amountExpression = nbt.contains("Amount") ? nbt.getString("Amount") : "damage";
+        String amountExpression = nbt.contains("AmountExpression") ? nbt.getString("AmountExpression") : "damage";
         String operation = nbt.contains("Operation") ? nbt.getString("Operation") : "set";
 
         return new ModifyDamageOperation(amountExpression, operation);

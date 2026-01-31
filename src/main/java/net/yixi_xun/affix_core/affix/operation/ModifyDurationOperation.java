@@ -10,8 +10,8 @@ public class ModifyDurationOperation implements IOperation {
     private final String amountExpression;
     private final String operation;
 
-    public ModifyDurationOperation(String amount, String operation) {
-        this.amountExpression = amount;
+    public ModifyDurationOperation(String amountExpression, String operation) {
+        this.amountExpression = amountExpression;
         this.operation = operation;
     }
 
@@ -45,7 +45,7 @@ public class ModifyDurationOperation implements IOperation {
     public CompoundTag toNBT() {
         CompoundTag nbt = new CompoundTag();
         nbt.putString("Type", getType());
-        nbt.putString("Amount", amountExpression);
+        nbt.putString("AmountExpression", amountExpression);
         nbt.putString("Operation", operation);
         return nbt;
     }
@@ -59,7 +59,7 @@ public class ModifyDurationOperation implements IOperation {
      * 工厂方法，从NBT创建ModifyDurationOperation
      */
     public static ModifyDurationOperation fromNBT(CompoundTag nbt) {
-        String amountExpression = nbt.contains("Amount") ? nbt.getString("Amount") : "duration";
+        String amountExpression = nbt.contains("AmountExpression") ? nbt.getString("AmountExpression") : "duration";
         String operation = nbt.contains("Operation") ? nbt.getString("Operation") : "duration";
 
         return new ModifyDurationOperation(amountExpression, operation);

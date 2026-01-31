@@ -176,7 +176,7 @@ public class HealthOperation implements IOperation {
         nbt.putString("Type", getType());
         nbt.putString("Mode", mode.getName());
         nbt.putString("Operation", operation.getName());
-        nbt.putString("Amount", amountExpression);
+        nbt.putString("AmountExpression", amountExpression);
         nbt.putString("Target", target);
         return nbt;
     }
@@ -196,7 +196,7 @@ public class HealthOperation implements IOperation {
         String operationStr = nbt.contains("Operation") ? nbt.getString("Operation") : "";
         Operation operation = Operation.fromString(operationStr);
 
-        String amountExpression = nbt.contains("Amount") ? nbt.getString("Amount") : "0";
+        String amountExpression = nbt.contains("AmountExpression") ? nbt.getString("AmountExpression") : "0";
         String target = nbt.contains("Target") ? nbt.getString("Target") : "self";
 
         return new HealthOperation(mode, operation, amountExpression, target);

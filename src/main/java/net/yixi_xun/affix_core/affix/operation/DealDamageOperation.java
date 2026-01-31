@@ -21,21 +21,21 @@ public class DealDamageOperation implements IOperation {
     private final String amountExpression;
     private final String damageType;
     private final String isExtraDamage;
-    private final String targetString;
+    private final String target;
     private final String sourceEntity;
 
 
-    public DealDamageOperation(String amount, String damageType, String isExtraDamage, String targetString, String sourceEntity) {
-        this.amountExpression = amount;
+    public DealDamageOperation(String amountExpression, String damageType, String isExtraDamage, String targetString, String sourceEntity) {
+        this.amountExpression = amountExpression;
         this.damageType = damageType;
         this.isExtraDamage = isExtraDamage;
         this.sourceEntity = sourceEntity;
-        this.targetString = targetString;
+        this.target = targetString;
     }
 
     @Override
     public void apply(AffixContext context) {
-        LivingEntity target = targetString.equals("self") ? context.getOwner() : context.getTarget();
+        LivingEntity target = this.target.equals("self") ? context.getOwner() : context.getTarget();
         LivingEntity attacker = sourceEntity.equals("self") ? context.getOwner() : context.getTarget();
         if (target == null) {
             return;
@@ -52,7 +52,7 @@ public class DealDamageOperation implements IOperation {
             case "starve" -> DamageTypes.STARVE;
             case "wither" -> DamageTypes.WITHER;
             case "out_of_world" -> DamageTypes.FALLING_BLOCK;
-            default -> DamageTypes.MOB_ATTACK;
+            default -> DamageTypes.GENERIC;
         };
 
         DamageSource source;
@@ -85,9 +85,9 @@ public class DealDamageOperation implements IOperation {
     public CompoundTag toNBT() {
         CompoundTag nbt = new CompoundTag();
         nbt.putString("Type", getType());
-        nbt.putString("Target", targetString);
+        nbt.putString("Target", target);
         nbt.putString("SourceEntity", sourceEntity);
-        nbt.putString("Amount", amountExpression);
+        nbt.putString("AmountExpression", amountExpression);
         nbt.putString("DamageType", damageType);
         nbt.putString("IsExtraDamage", isExtraDamage);
         return nbt;
@@ -102,8 +102,8 @@ public class DealDamageOperation implements IOperation {
      * 工厂方法，从NBT创建DamageOperation
      */
     public static DealDamageOperation fromNBT(CompoundTag nbt) {
-        String amountExpression = nbt.contains("Amount") ? nbt.getString("Amount") : "1.0f";
-        String damageType = nbt.contains("DamageType") ? nbt.getString("DamageType") : "generic";
+        String amountExpression = nbt.contains("AmountExpression") ? nbt.getString("AmountExpression") : "1";
+        String damageType = nbt.contains("DamageType") ? nbt.getString("DamageType") : "magic";
         String target = nbt.contains("Target") ? nbt.getString("Target") : "target";
         String isExtraDamage = nbt.contains("IsExtraDamage") ? nbt.getString("IsExtraDamage") : "true";
         String sourceEntity = nbt.contains("SourceEntity") ? nbt.getString("SourceEntity") : "self";
