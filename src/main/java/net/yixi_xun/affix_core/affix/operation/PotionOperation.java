@@ -9,8 +9,6 @@ import net.minecraftforge.registries.ForgeRegistries;
 import net.yixi_xun.affix_core.affix.AffixContext;
 import net.yixi_xun.affix_core.api.ExpressionHelper;
 
-import java.util.*;
-
 /**
  * 药水效果操作，给目标或自己添加药水效果
  */
@@ -45,7 +43,11 @@ public class PotionOperation implements IOperation {
         // 确定目标实体
         LivingEntity target = targetString.equals("self") ? context.getOwner() : context.getTarget();
         if (target == null) {
-            return;
+            // 如果无法获取目标实体，则使用持有者作为默认目标
+            target = context.getOwner();
+        }
+        if (target == null) {
+            return; // 如果仍然为空，则返回
         }
 
         // 计算药水效果的持续时间和等级
@@ -94,7 +96,7 @@ public class PotionOperation implements IOperation {
      * 工厂方法，从NBT创建PotionOperation
      */
     public static PotionOperation fromNBT(CompoundTag nbt) {
-        String effectStr = nbt.getString("Effect");
+        String effectStr = nbt.contains("Effect") ? nbt.getString("Effect") : "minecraft:speed";
         ResourceLocation effectId = ResourceLocation.tryParse(effectStr);
 
         String durationExpression = nbt.contains("DurationExpression") ? nbt.getString("DurationExpression") : "100";

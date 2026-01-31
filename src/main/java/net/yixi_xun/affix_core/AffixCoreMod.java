@@ -13,9 +13,6 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.util.thread.SidedThreadGroups;
 import net.yixi_xun.affix_core.affix.AffixManager;
-import net.yixi_xun.affix_core.client.ClientEvents;
-import net.yixi_xun.affix_core.network.NetworkManager;
-import net.yixi_xun.affix_core.tooltip.AttributeTooltipHandler;
 import org.slf4j.Logger;
 
 import java.util.AbstractMap;
@@ -37,9 +34,7 @@ public class AffixCoreMod {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
         ModLoadingContext modLoadingContext = ModLoadingContext.get();
         AffixManager.init();
-        NetworkManager.register(); // 注册网络包
         modLoadingContext.registerConfig(ModConfig.Type.COMMON, AFConfig.SPEC);
-
 
     }
 
@@ -60,15 +55,18 @@ public class AffixCoreMod {
             Iterator<AbstractMap.SimpleEntry<Runnable, Integer>> iterator = workQueue.iterator();
             while (iterator.hasNext()) {
                 AbstractMap.SimpleEntry<Runnable, Integer> task = iterator.next();
-                
+
                 // 减少剩余tick数
                 int remainingTicks = task.getValue() - 1;
-                task.setValue(remainingTicks);
-                
+
                 // 如果任务已到期，则执行并移除
                 if (remainingTicks <= 0) {
                     iterator.remove();
                     task.getKey().run();
+                } else {
+                    // 使用新的SimpleEntry替换原有的，避免并发修改问题
+                    iterator.remove();
+                    workQueue.add(new AbstractMap.SimpleEntry<>(task.getKey(), remainingTicks));
                 }
             }
         }
@@ -80,8 +78,6 @@ public class AffixCoreMod {
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
             // 注册客户端事件处理器
-            MinecraftForge.EVENT_BUS.register(ClientEvents.class);
-            MinecraftForge.EVENT_BUS.register(AttributeTooltipHandler.class);
         }
     }
 }

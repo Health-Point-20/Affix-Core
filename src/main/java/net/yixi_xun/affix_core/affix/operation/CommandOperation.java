@@ -7,9 +7,10 @@ import net.minecraft.world.entity.Entity;
 import net.yixi_xun.affix_core.affix.AffixContext;
 
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static net.yixi_xun.affix_core.AffixCoreMod.LOGGER;
-import static net.yixi_xun.affix_core.api.ExpressionHelper.evaluate;
 
 /**
  * 命令执行操作，用于执行服务器命令
@@ -25,41 +26,80 @@ public class CommandOperation implements IOperation {
 
     @Override
     public void apply(AffixContext context) {
+        // 检查命令表达式是否为空
+        if (commandExpression.trim().isEmpty()) {
+            return; // 如果命令表达式为空，则不执行任何操作
+        }
+        
         MinecraftServer server = context.getWorld().getServer();
         if (server == null) {
             return;
         }
 
-        // 计算命令表达式中的变量
-        Map<String, Object> variables = context.getVariables();
-        Object evaluatedResult = evaluate(commandExpression, variables);
-        String evaluatedCommand = evaluatedResult.toString();
+        // 替换命令表达式中的变量
+        String processedCommand = replaceVariables(commandExpression, context.getVariables());
 
         // 确保命令以'/'开头
-        if (!evaluatedCommand.startsWith("/")) {
-            evaluatedCommand = "/" + evaluatedCommand;
+        if (!processedCommand.startsWith("/")) {
+            processedCommand = "/" + processedCommand;
         }
 
         try {
             if ("server".equals(executor)) {
                 // 作为服务器执行命令
-                server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), evaluatedCommand);
+                server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), processedCommand);
             } else {
                 // 作为特定实体执行命令
                 Entity executorEntity = getExecutorEntity(context);
                 if (executorEntity != null) {
                     // 获取执行者的命令源
                     CommandSourceStack sourceStack = server.createCommandSourceStack().withEntity(executorEntity);
-                    server.getCommands().performPrefixedCommand(sourceStack, evaluatedCommand);
+                    server.getCommands().performPrefixedCommand(sourceStack, processedCommand);
                 } else {
                     // 如果实体不能作为命令源，则使用服务器执行
-                    server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), evaluatedCommand);
+                    server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), processedCommand);
                 }
             }
         } catch (Exception e) {
             // 捕获执行命令时可能出现的异常
-            LOGGER.warn("执行命令时出现错误: {}", evaluatedCommand);
+            LOGGER.warn("执行命令时出现错误: {}", processedCommand, e);
         }
+    }
+
+    /**
+     * 替换命令字符串中的变量占位符
+     * 支持 ${variableName} 或 {variableName} 格式的变量
+     */
+    private String replaceVariables(String command, Map<String, Object> variables) {
+        // 使用正则表达式匹配 ${variableName} 或 {variableName} 格式的变量
+        Pattern pattern = Pattern.compile("\\$?\\{([^}]+)}");
+        Matcher matcher = pattern.matcher(command);
+        StringBuilder buffer = new StringBuilder();
+
+        while (matcher.find()) {
+            String variableName = matcher.group(1);
+            Object value = variables.get(variableName);
+            
+            // 如果变量存在于上下文中，则替换它
+            if (value != null) {
+                // 对于非数值类型，可能需要特别处理
+                String replacement = value.toString();
+                
+                // 如果是字符串类型，且包含特殊字符，可能需要转义
+                if (value instanceof String) {
+                    // 转义反斜杠和美元符号，防止进一步的正则替换
+                    replacement = replacement.replace("\\", "\\\\").replace("$", "\\$");
+                }
+                
+                matcher.appendReplacement(buffer, replacement);
+            } else {
+                // 如果变量不存在，保留原样
+                matcher.appendReplacement(buffer, matcher.group(0));
+            }
+        }
+        matcher.appendTail(buffer);
+        
+        return buffer.toString();
     }
 
     /**

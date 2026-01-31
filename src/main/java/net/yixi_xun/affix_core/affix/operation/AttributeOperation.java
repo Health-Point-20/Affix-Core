@@ -27,8 +27,9 @@ public class AttributeOperation implements IOperation {
     private final boolean isPermanent;  // 是否永久生效
     private final String durationExpression;
     private final String target;  // 目标
-    
-    public AttributeOperation(ResourceLocation attributeId, String amountExpression, AttributeModifier.Operation operation, String name, boolean isPermanent, String durationExpression, String target) {
+    private final boolean shouldRemove;  // 是否启用移除功能
+
+    public AttributeOperation(ResourceLocation attributeId, String amountExpression, AttributeModifier.Operation operation, String name, boolean isPermanent, String durationExpression, String target, boolean shouldRemove) {
         this.attributeId = attributeId;
         this.amountExpression = amountExpression;
         this.operation = operation;
@@ -36,6 +37,7 @@ public class AttributeOperation implements IOperation {
         this.isPermanent = isPermanent;
         this.durationExpression = durationExpression;
         this.target = target != null ? target : "self";
+        this.shouldRemove = shouldRemove;
     }
 
     @Override
@@ -62,6 +64,9 @@ public class AttributeOperation implements IOperation {
 
         // 根据target确定应用到哪个实体
         var targetEntity = context.getTarget();
+        if (targetEntity == null) {
+            targetEntity = context.getOwner(); // 默认使用持有者作为目标
+        }
 
         // 应用属性修饰符到实体
         var attributeInstance = targetEntity.getAttribute(attribute);
@@ -83,7 +88,14 @@ public class AttributeOperation implements IOperation {
                                 attributeInstance.removeModifier(modifier);
 
                                 // 从跟踪集合中移除
-                                APPLIED_MODIFIERS.getOrDefault(key, new HashSet<>()).remove(modifier);
+                                Set<AttributeModifier> trackedModifiers = APPLIED_MODIFIERS.get(key);
+                                if (trackedModifiers != null) {
+                                    trackedModifiers.remove(modifier);
+                                    // 如果集合为空，则完全移除该键
+                                    if (trackedModifiers.isEmpty()) {
+                                        APPLIED_MODIFIERS.remove(key);
+                                    }
+                                }
                             }
                         }
                 );
@@ -95,6 +107,9 @@ public class AttributeOperation implements IOperation {
      * 移除此操作应用的所有属性修饰符
      */
     public void remove(AffixContext context) {
+        if (!shouldRemove) {
+            return; // 如果不应移除，则直接返回
+        }
         String key = generateKey(context);
         Set<AttributeModifier> modifiers = APPLIED_MODIFIERS.get(key);
         if (modifiers == null || modifiers.isEmpty()) {
@@ -126,7 +141,6 @@ public class AttributeOperation implements IOperation {
             }
             
             // 清空跟踪集合
-            modifiers.clear();
             APPLIED_MODIFIERS.remove(key);
         }
     }
@@ -152,6 +166,7 @@ public class AttributeOperation implements IOperation {
         nbt.putString("Target", target);
         nbt.putBoolean("IsPermanent", isPermanent);
         nbt.putString("DurationExpression", durationExpression);
+        nbt.putBoolean("ShouldRemove", shouldRemove);
         return nbt;
     }
 
@@ -175,8 +190,9 @@ public class AttributeOperation implements IOperation {
         boolean isPermanent = nbt.contains("IsPermanent") && nbt.getBoolean("IsPermanent");
         String durationExpression = nbt.contains("DurationExpression") ? nbt.getString("DurationExpression") : "0";
         String target = nbt.contains("Target") ? nbt.getString("Target") : "self";
+        boolean shouldRemove = !nbt.contains("ShouldRemove") || nbt.getBoolean("ShouldRemove");
 
-        return new AttributeOperation(attributeId, amountExpression, operation, name, isPermanent, durationExpression, target);
+        return new AttributeOperation(attributeId, amountExpression, operation, name, isPermanent, durationExpression, target, shouldRemove);
     }
 
     /**

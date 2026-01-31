@@ -8,6 +8,7 @@ import net.yixi_xun.affix_core.affix.operation.IOperation;
 import net.yixi_xun.affix_core.affix.operation.OperationManager;
 import net.yixi_xun.affix_core.api.AffixEvent;
 
+import static net.yixi_xun.affix_core.AffixCoreMod.LOGGER;
 import static net.yixi_xun.affix_core.api.ExpressionHelper.evaluateCondition;
 
 /**
@@ -25,34 +26,39 @@ public record Affix(String trigger, String condition, IOperation operation, Long
         // 读取触发器，默认为空
         String trigger = nbt.contains("Trigger") ? nbt.getString("Trigger") : "";
 
-        // 读取条件，默认为空（视为true）
-        String condition = nbt.contains("Condition") ? nbt.getString("Condition") : null;
+        // 读取条件，默认为空字符串（视为true）
+        String condition = nbt.contains("Condition") ? nbt.getString("Condition") : "";
 
         // 读取操作配置
-        IOperation operation = null;
+        IOperation operation;
         if (nbt.contains("Operation")) {
             CompoundTag operationTag = nbt.getCompound("Operation");
             operation = OperationManager.createOperation(operationTag);
+            // 如果OperationManager无法创建操作，抛出异常
+            if (operation == null) {
+                LOGGER.warn("Invalid operation in Affix NBT");
+                return null;
+            }
+        } else {
+            LOGGER.warn("Operation is required for Affix");
+            return null;
         }
 
         // 读取冷却时间，默认为0（无冷却）
         Long cooldown = nbt.contains("Cooldown") ? nbt.getLong("Cooldown") : 0L;
 
-        // 读取触发次数
+        // 读取触发次数，默认为0
         int triggerCount = nbt.contains("TriggerCount") ? nbt.getInt("TriggerCount") : 0;
 
-        // 读取槽位限制，默认为ANY（任意槽位）
-        EquipmentSlot slot = EquipmentSlot.MAINHAND; // 默认值
+        // 读取槽位限制，默认为null（任意槽位）
+        EquipmentSlot slot = null; // 默认值为任意槽位
         if (nbt.contains("Slot")) {
             if (nbt.getString("Slot") instanceof String) {
                 String slotName = nbt.getString("Slot");
-                if (slotName.equals("ANY")) {
-                    slot = null; // null表示任意槽位
-                } else {
-                    try {
-                        slot = EquipmentSlot.byName(slotName.toLowerCase());
-                    } catch (IllegalArgumentException ignored) {
-                    }
+                try {
+                    slot = EquipmentSlot.byName(slotName.toLowerCase());
+                } catch (IllegalArgumentException ignored) {
+                    // 如果无效槽位名，使用默认值
                 }
             } else if (nbt.get("Slot") instanceof NumericTag) {
                 // 如果是数字，尝试转换为EquipmentSlot
@@ -60,10 +66,10 @@ public record Affix(String trigger, String condition, IOperation operation, Long
                 EquipmentSlot[] slots = EquipmentSlot.values();
                 if (slotIndex >= 0 && slotIndex < slots.length) {
                     slot = slots[slotIndex];
+                } else {
+                    slot = null; // 如果索引超出范围，使用默认值
                 }
             }
-        } else {
-            slot = null; // 缺省值为任意槽位
         }
 
         return new Affix(trigger, condition, operation, cooldown, triggerCount, slot, index);

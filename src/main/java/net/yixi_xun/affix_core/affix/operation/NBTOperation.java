@@ -24,6 +24,11 @@ public class NBTOperation implements IOperation {
 
     @Override
     public void apply(AffixContext context) {
+        // 检查NBT路径是否为空
+        if (nbtPath.trim().isEmpty()) {
+            return; // 如果NBT路径为空，则不执行任何操作
+        }
+        
         // 根据target获取相应的NBT容器
         CompoundTag targetNBT = getTargetNBT(context);
         if (targetNBT == null) {

@@ -1,15 +1,10 @@
 package net.yixi_xun.affix_core.affix.operation;
 
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraftforge.event.entity.living.LivingDamageEvent;
 import net.minecraftforge.event.entity.living.MobEffectEvent;
 import net.minecraftforge.eventbus.api.Event;
-import net.minecraftforge.registries.ForgeRegistries;
 import net.yixi_xun.affix_core.affix.AffixContext;
 import net.yixi_xun.affix_core.api.ExpressionHelper;
 
@@ -29,7 +24,9 @@ public class ModifyEffectOperation implements IOperation {
     @Override
     public void apply(AffixContext context) {
         if (!(context.getEvent() instanceof MobEffectEvent.Applicable event)) return;
-        if (event.getEntity().getPersistentData().getBoolean("affix_effect_modifying")) return;
+        LivingEntity entity = event.getEntity();
+        if (entity == null) return;
+        if (entity.getPersistentData().getBoolean("affix_effect_modifying")) return;
         event.setResult(Event.Result.DENY);
         MobEffectInstance oldEffect = event.getEffectInstance();
 
@@ -45,9 +42,9 @@ public class ModifyEffectOperation implements IOperation {
             computedDuration, 
             computedAmplifier
         );
-        event.getEntity().getPersistentData().putBoolean("affix_effect_modifying", true);
-        event.getEntity().addEffect(effectInstance);
-        event.getEntity().getPersistentData().remove("affix_effect_modifying");
+        entity.getPersistentData().putBoolean("affix_effect_modifying", true);
+        entity.addEffect(effectInstance);
+        entity.getPersistentData().remove("affix_effect_modifying");
     }
 
     @Override

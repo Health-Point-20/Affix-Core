@@ -1,6 +1,6 @@
 {
-  "item.modifiers.hand": "手持时:",
-  "item.modifiers.armor": "装备时:",
+  "item.modifiers.hand": "在手上时：",
+  "item.modifiers.armor": "在装备栏上时：",
   "gui.affix_core.affix_list.title": "物品词缀列表",
   "gui.affix_core.affix_editor.title": "编辑词缀",
   "gui.affix_core.reset_affix.title": "重置词缀",

@@ -1,8 +1,12 @@
 buildscript {
     repositories {
-        // These repositories are only for Gradle plugins, put any other repositories in the repository block further below
+        // 这些仓库仅用于 Gradle 插件，在下面的仓库块中放置其他仓库
+        maven { url = 'https://maven.aliyun.com/repository/public/' }
+        maven { url = 'https://mirrors.qlu.edu.cn/bmclapi/' }
+        maven { url = 'https://maven.minecraftforge.net/' }
         maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
         mavenCentral()
+        gradlePluginPortal()
     }
     dependencies {
         classpath 'org.spongepowered:mixingradle:0.7-SNAPSHOT'
@@ -131,8 +135,14 @@ mixin {
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 repositories {
-    // Put repositories for dependencies here
-    // ForgeGradle automatically adds the Forge maven and Maven Central for you
+    // 在此处放置依赖项的仓库
+    // ForgeGradle 自动为您添加 Forge maven 和 Maven Central
+
+    maven { url = 'https://maven.aliyun.com/repository/public/' }
+    maven { url = 'https://maven.minecraftforge.net/' }
+    maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+    mavenCentral()
+    maven { url = 'https://libraries.minecraft.net/' }
 
     // If you have mod jar dependencies in ./libs, you can declare them as a repository like so.
     // See https://docs.gradle.org/current/userguide/declaring_repositories.html#sub:flat_dir_resolver

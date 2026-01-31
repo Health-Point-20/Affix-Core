@@ -36,6 +36,7 @@ public class DealDamageOperation implements IOperation {
     @Override
     public void apply(AffixContext context) {
         LivingEntity target = targetString.equals("self") ? context.getOwner() : context.getTarget();
+        LivingEntity attacker = sourceEntity.equals("self") ? context.getOwner() : context.getTarget();
         if (target == null) {
             return;
         }
@@ -61,7 +62,7 @@ public class DealDamageOperation implements IOperation {
             source = new DamageSource(target.level().registryAccess()
                     .registryOrThrow(Registries.DAMAGE_TYPE)
                     .getHolderOrThrow(type),
-                    context.getOwner());
+                    attacker);
         }
 
         float finalAmount = (float) evaluate(amountExpression, context.getVariables());
@@ -103,7 +104,7 @@ public class DealDamageOperation implements IOperation {
     public static DealDamageOperation fromNBT(CompoundTag nbt) {
         String amountExpression = nbt.contains("Amount") ? nbt.getString("Amount") : "1.0f";
         String damageType = nbt.contains("DamageType") ? nbt.getString("DamageType") : "generic";
-        String target = nbt.contains("Target") ? nbt.getString("Target") : null;
+        String target = nbt.contains("Target") ? nbt.getString("Target") : "target";
         String isExtraDamage = nbt.contains("IsExtraDamage") ? nbt.getString("IsExtraDamage") : "true";
         String sourceEntity = nbt.contains("SourceEntity") ? nbt.getString("SourceEntity") : "self";
 

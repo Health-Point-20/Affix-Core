@@ -4,27 +4,28 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.suggestion.Suggestions;
+import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.yixi_xun.affix_core.affix.Affix;
 import net.yixi_xun.affix_core.affix.AffixManager;
+import net.yixi_xun.affix_core.affix.operation.IOperation;
 import net.yixi_xun.affix_core.affix.operation.OperationManager;
-import net.yixi_xun.affix_core.api.ExpressionHelper;
-import net.yixi_xun.affix_core.gui.screen.AffixListScreen;
-import net.yixi_xun.affix_core.network.NetworkManager;
-import net.yixi_xun.affix_core.network.OpenAffixListPacket;
 
-import javax.xml.xpath.XPathExpressionException;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+
+import static net.yixi_xun.affix_core.AffixCoreMod.LOGGER;
 
 /**
  * 词缀系统的命令类
@@ -41,30 +42,6 @@ public class AffixCommands {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
             Commands.literal("affix")
-                .then(Commands.literal("add")
-                    .then(Commands.argument("trigger", StringArgumentType.string())
-                        .then(Commands.argument("operation", StringArgumentType.string())
-                            .executes(context -> addAffix(context, 
-                                StringArgumentType.getString(context, "trigger"),
-                                StringArgumentType.getString(context, "operation"),
-                                null,
-                                0,
-                                null))
-                            .then(Commands.argument("condition", StringArgumentType.string())
-                                .executes(context -> addAffix(context,
-                                    StringArgumentType.getString(context, "trigger"),
-                                    StringArgumentType.getString(context, "operation"),
-                                    StringArgumentType.getString(context, "condition"),
-                                    0,
-                                    null))
-                                .then(Commands.argument("cooldown", IntegerArgumentType.integer(0))
-                                    .then(Commands.argument("slot", StringArgumentType.string())
-                                        .executes(context -> addAffix(context,
-                                            StringArgumentType.getString(context, "trigger"),
-                                            StringArgumentType.getString(context, "operation"),
-                                            StringArgumentType.getString(context, "condition"),
-                                            IntegerArgumentType.getInteger(context, "cooldown"),
-                                            StringArgumentType.getString(context, "slot")))))))))
                 .then(Commands.literal("list")
                     .executes(AffixCommands::listAffixes))
                 .then(Commands.literal("remove")
@@ -73,53 +50,27 @@ public class AffixCommands {
                             IntegerArgumentType.getInteger(context, "index")))))
                 .then(Commands.literal("clear")
                     .executes(AffixCommands::clearAffixes))
-                .then(Commands.literal("merge_nbt")
+                .then(Commands.literal("add")
+                    .then(Commands.argument("nbt_data", StringArgumentType.greedyString())
+                        .executes(context -> addAffix(context, StringArgumentType.getString(context, "nbt_data")))))
+                .then(Commands.literal("merge")
                     .then(Commands.argument("nbt_data", StringArgumentType.greedyString())
                         .executes(context -> mergeNBT(context, StringArgumentType.getString(context, "nbt_data")))))
-                .then(Commands.literal("gui")
-                    .executes(AffixCommands::gui))
-                .then(Commands.literal("clearCache")
-                    .executes(AffixCommands::clearCache))
+                .then(Commands.literal("template")
+                    .then(Commands.argument("operation_type", StringArgumentType.string())
+                        .suggests(AffixCommands::suggestOperationTypes)
+                        .executes(context -> template(context, StringArgumentType.getString(context, "operation_type")))))
         );
     }
 
-    private static int addAffix(CommandContext<CommandSourceStack> context, String trigger, String operationType, 
-                               String condition, int cooldown, String slot) {
-        ItemStack itemStack = isValidItem(context);
-        if (itemStack == null) return 0;
-
-        try {
-            // 创建操作
-            CompoundTag operationTag = new CompoundTag();
-            operationTag.putString("type", operationType);
-            var operation = OperationManager.createOperation(operationTag);
-
-            if (operation == null) {
-                context.getSource().sendFailure(Component.literal("未知的操作类型: " + operationType));
-                return 0;
+    private static CompletableFuture<Suggestions> suggestOperationTypes(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
+        Map<String, OperationManager.OperationFactory> factoryMap = OperationManager.getFactoryMap();
+        for (String type : factoryMap.keySet()) {
+            if (type.toLowerCase().startsWith(builder.getRemainingLowerCase())) {
+                builder.suggest(type);
             }
-
-            // 创建词缀
-            List<Affix> affixes = AffixManager.getAffixes(itemStack);
-            EquipmentSlot equipmentSlot = null;
-            if (slot != null && !slot.isEmpty()) {
-                try {
-                    equipmentSlot = EquipmentSlot.byName(slot.toLowerCase());
-                } catch (IllegalArgumentException e) {
-                    context.getSource().sendFailure(Component.literal("无效的槽位: " + slot));
-                    return 0;
-                }
-            }
-
-            Affix affix = new Affix(trigger, condition, operation, (long) cooldown, 0, equipmentSlot, affixes.size());
-            AffixManager.addAffix(itemStack, affix);
-
-            context.getSource().sendSuccess(() -> Component.literal("成功添加词缀: " + trigger), true);
-            return 1;
-        } catch (Exception e) {
-            context.getSource().sendFailure(Component.literal("添加词缀失败: " + e.getMessage()));
-            return 0;
         }
+        return builder.buildFuture();
     }
 
     private static int listAffixes(CommandContext<CommandSourceStack> context) {
@@ -173,6 +124,33 @@ public class AffixCommands {
         return 1;
     }
 
+    private static int addAffix(CommandContext<CommandSourceStack> context, String nbtData) {
+        ItemStack itemStack = isValidItem(context);
+        if (itemStack == null) return 0;
+
+        try {
+            // 解析NBT字符串，这应该是一个词缀的NBT格式
+            CompoundTag parsedNBT = TagParser.parseTag(nbtData);
+            
+            // 从NBT创建词缀对象
+            Affix affix = Affix.fromNBT(parsedNBT, 0); // 索引会在addAffix中重新分配
+            
+            if (affix == null) {
+                context.getSource().sendFailure(Component.literal("创建词缀对象失败"));
+                return 0;
+            }
+            
+            // 向物品添加词缀
+            AffixManager.addAffix(itemStack, affix);
+            
+            context.getSource().sendSuccess(() -> Component.literal("成功向物品添加词缀"), true);
+            return 1;
+        } catch (Exception e) {
+            context.getSource().sendFailure(Component.literal("解析词缀NBT数据失败: " + e.getMessage()));
+            return 0;
+        }
+    }
+
     private static int mergeNBT(CommandContext<CommandSourceStack> context, String nbtData) {
         ItemStack itemStack = isValidItem(context);
         if (itemStack == null) return 0;
@@ -192,22 +170,59 @@ public class AffixCommands {
         }
     }
 
-    private static int gui(CommandContext<CommandSourceStack> context) {
-        context.getSource().sendSuccess(() -> Component.literal("打开词缀GUI"), true);
-        ServerPlayer player = context.getSource().getPlayer();
-        if (player == null) return 0;
+    private static int template(CommandContext<CommandSourceStack> context, String operationType) {
         ItemStack itemStack = isValidItem(context);
         if (itemStack == null) return 0;
-
-        NetworkManager.sendToPlayer(new OpenAffixListPacket(itemStack), player);
         
-        return 1;
-    }
-
-    private static int clearCache(CommandContext<CommandSourceStack> context) {
-        ExpressionHelper.clearCache();
-        context.getSource().sendSuccess(() -> Component.literal("成功清除解析式缓存"), true);
-        return 1;
+        try {
+            // 获取所有可用的操作类型
+            Map<String, OperationManager.OperationFactory> factoryMap = OperationManager.getFactoryMap();
+            
+            if (!factoryMap.containsKey(operationType)) {
+                StringBuilder availableTypes = new StringBuilder();
+                for (String type : factoryMap.keySet()) {
+                    if (!availableTypes.isEmpty()) {
+                        availableTypes.append(", ");
+                    }
+                    availableTypes.append(type);
+                }
+                
+                context.getSource().sendFailure(Component.literal("未知的操作类型: " + operationType + ". 可用类型: " + availableTypes));
+                return 0;
+            }
+            
+            // 创建一个默认的操作NBT标签
+            CompoundTag operationNbt = new CompoundTag();
+            operationNbt.putString("Type", operationType);
+            
+            // 使用工厂创建操作实例，这样会使用默认值
+            IOperation operation = factoryMap.get(operationType).create(operationNbt);
+            
+            if (operation == null) {
+                context.getSource().sendFailure(Component.literal("无法创建操作类型: " + operationType));
+                return 0;
+            }
+            
+            // 创建一个默认的词缀对象，包含默认操作
+            Affix defaultAffix = new Affix("on_attack", "", operation, 0L, 0, null, 0);
+            
+            // 将词缀转换回NBT格式以获取完整的默认NBT结构
+            CompoundTag affixNbt = defaultAffix.toNBT();
+            
+            String nbtString = affixNbt.toString();
+            
+            // 直接将词缀添加到物品上
+            AffixManager.addAffix(itemStack, defaultAffix);
+            
+            context.getSource().sendSuccess(() -> Component.literal("已将操作类型为 '" + operationType + "' 的样板词缀添加到物品上"), true);
+            context.getSource().sendSuccess(() -> Component.literal("词缀NBT: " + nbtString), true);
+            
+            return 1;
+        } catch (Exception e) {
+            context.getSource().sendFailure(Component.literal("生成样板词缀失败: " + e.getMessage()));
+            LOGGER.warn("生成样板词缀失败: {}", e.getMessage());
+            return 0;
+        }
     }
 
     private static ItemStack isValidItem(CommandContext<CommandSourceStack> context) {ServerPlayer player;

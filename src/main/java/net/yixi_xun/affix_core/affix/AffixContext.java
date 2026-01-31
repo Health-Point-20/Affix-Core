@@ -8,15 +8,13 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
-import net.minecraftforge.event.entity.living.MobEffectEvent;
 import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.registries.ForgeRegistries;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
-/**
- * 词缀执行上下文，包含事件信息和变量映射
- */
 public class AffixContext {
     private final Level world;
     private final LivingEntity owner; // 词缀物品的持有者
@@ -45,13 +43,16 @@ public class AffixContext {
         // 初始化实体相关的复杂变量
         variables.put("self", createEntityData(owner));
 
-        // 根据触发器类型和事件类型初始化特定变量
-        initVariablesFromEvent();
+        // 注意：事件特定变量现在由调用者负责添加
     }
 
     // 创建实体数据映射
-    private Map<String, Object> createEntityData(LivingEntity entity) {
+    public Map<String, Object> createEntityData(LivingEntity entity) {
         Map<String, Object> entityData = new HashMap<>();
+
+        if (entity == null) {
+            return entityData; // 返回空映射
+        }
 
         // 基本健康状态
         entityData.put("health", entity.getHealth());
@@ -62,7 +63,8 @@ public class AffixContext {
         // 字符串信息
         entityData.put("name", entity.getName().getString());
         ResourceLocation entityKey = ForgeRegistries.ENTITY_TYPES.getKey(entity.getType());
-        entityData.put("id", entityKey != null ? entityKey.toString() : "unknown");
+        entityData.put("type", entityKey != null ? entityKey.toString() : "unknown");
+        entityData.put("uuid", entity.getStringUUID());
 
         // 布尔信息
         entityData.put("is_sprinting", entity.isSprinting() ? 1 : 0);
@@ -116,52 +118,9 @@ public class AffixContext {
     }
 
     /**
-     * 根据事件类型初始化特定变量
-     */
-    private void initVariablesFromEvent() {
-        if (trigger.contains("on_attack") && event instanceof LivingHurtEvent attackEvent) {
-            LivingEntity target = attackEvent.getEntity();
-
-            variables.put("damage", attackEvent.getAmount());
-            variables.put("damage_type", attackEvent.getSource().type().msgId());
-            variables.put("target", createEntityData(target));
-            variables.put("distance", owner.distanceTo(target));
-        }
-        else if (trigger.contains("on_hurt") && event instanceof LivingHurtEvent hurtEvent) {
-            variables.put("damage", hurtEvent.getAmount());
-            variables.put("damage_type", hurtEvent.getSource().type().msgId());
-            if (hurtEvent.getSource().getEntity() instanceof LivingEntity attacker) {
-                variables.put("attacker", createEntityData(attacker));
-                variables.put("distance", owner.distanceTo(attacker));
-            } else {
-                variables.put("attacker", createEntityData(owner)); // 默认为自身
-                variables.put("distance", 0);
-            }
-        }
-        else if (trigger.contains("on_death") && event instanceof LivingDeathEvent deathEvent) {
-            LivingEntity killer = deathEvent.getSource().getEntity() instanceof LivingEntity ?
-                    (LivingEntity) deathEvent.getSource().getEntity() : null;
-            variables.put("damage_type", deathEvent.getSource().type().msgId());
-
-            variables.put("killer", killer != null ? createEntityData(killer) : createEntityData(owner));
-            variables.put("distance", killer != null ? owner.distanceTo(killer) : 0);
-        }
-        else if (trigger.contains("on_kill") && event instanceof LivingDeathEvent deathEvent) {
-            LivingEntity target = deathEvent.getEntity();
-
-            variables.put("target", target != null ? createEntityData(target) : createEntityData(owner));
-            variables.put("distance", owner.distanceTo(target != null ? target : owner));
-        }
-        else if (trigger.contains("on_effect_add") && event instanceof MobEffectEvent.Applicable effectEvent) {
-            variables.put("duration", effectEvent.getEffectInstance().getDuration());
-            variables.put("amplifier", effectEvent.getEffectInstance().getAmplifier());
-        }
-    }
-
-    /**
      * 添加自定义变量
      */
-    public void addVariable(String name, Number value) {
+    public void addVariable(String name, Object value) {
         variables.put(name, value);
     }
 

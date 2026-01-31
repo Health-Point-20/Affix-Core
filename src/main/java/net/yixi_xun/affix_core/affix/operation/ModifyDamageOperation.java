@@ -1,7 +1,6 @@
 package net.yixi_xun.affix_core.affix.operation;
 
 import net.minecraft.nbt.CompoundTag;
-import net.minecraftforge.event.entity.living.LivingDamageEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.yixi_xun.affix_core.affix.AffixContext;
 

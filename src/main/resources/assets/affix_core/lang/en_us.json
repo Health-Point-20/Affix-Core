@@ -1,6 +1,6 @@
 {
-  "item.modifiers.hand": "When on Hand:",
-  "item.modifiers.armor": "When on Armor:",
+  "item.modifiers.hand": "When in Hand:",
+  "item.modifiers.armor": "When in Armor:",
   "gui.affix_core.affix_list.title": "Item Affix List",
   "gui.affix_core.affix_editor.title": "Edit Affix",
   "gui.affix_core.reset_affix.title": "Reset Affixes",
@@ -20,5 +20,5 @@
   "gui.affix_core.label.item_details": "Item Details:",
   "gui.affix_core.label.affix_list": "Affix List:",
   "gui.affix_core.affix_editor.trigger": "Trigger Condition",
-  "gui.affix_core.unknown_operation": "Unknown operation type: %s, unable to edit detailed parameters"
+  "gui.affix_core.unknown_operation": "Unknown operation type: %s，unable to edit detailed parameters"
 }
