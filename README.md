@@ -1,6 +1,6 @@
 # Affix-Core
 
-[![License: CC BY-SA 4.0](https://img.shields.io/badge/License-Creative%20Commons%20BY--SA%204.0-informational.svg)](https://creativecommons.org/licenses/by-sa/4.0/)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Minecraft Version](https://img.shields.io/badge/Minecraft-1.20.1-brightgreen.svg)](https://minecraft.net/)
 [![Forge](https://img.shields.io/badge/Forge-47.4.13-orange.svg)](https://files.minecraftforge.net/)
 
@@ -11,27 +11,33 @@ Affix_Core 是一个Minecraft Forge模组，提供了一个的词缀系统，允
 ## 功能
 
 - 为物品添加多种词缀效果
-- 支持属性修改操作
 - 修改物品耐久度/最大耐久等
-- 支持药水效果词缀
-- 支持自定义命令执行
-- 支持NBT数据操作
-- 非常糟糕的可视化编辑界面
-
+- 冷却机制管理
 
 ## 使用方法
 
-- 使用可视化编辑器创建和管理词缀（很不推荐）
-- 通过命令 `/affix` 访问词缀相关功能（也不推荐）
-- 通过 `IBE Editor` 之类的模组访问词缀相关功能（推荐）
+- 通过命令 `/affix` 访问词缀相关功能
+  - `/affix template <operationType>` - 生成指定操作类型的样板词缀
+  - 可用操作类型包括:
+    - `deal_damage` - 造成伤害
+    - `add_potion` - 添加药水效果
+    - `modify_damage` - 修改伤害
+    - `attribute` - 属性修改
+    - `modify_effect` - 修改效果
+    - `nbt_operation` - NBT操作
+    - `cancel_event` - 取消事件
+    - `execute_command` - 执行命令
+    - `modify_duration` - 修改持续时间
+    - `health_operation` - 生命值操作
+- 通过 `IBE Editor` 之类的模组直接编辑物品NBT来精确控制词缀
 
 ## 配置
 
-本模组包含配置文件，可在 `config/affix_core-common.toml` 中找到。您可以根据需要调整各项参数。
+本模组包含配置文件，可在 `config/affix_core-common.toml` 中找到。您可以根据需要调整各项参数（虽然现在还没有...）。
 
 ## 许可证
 
-本项目采用 [Creative Commons Attribution-ShareAlike 4.0 International](LICENSE) 许可证。
+本项目采用 [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0) 许可证。
 
 ## 贡献
 
