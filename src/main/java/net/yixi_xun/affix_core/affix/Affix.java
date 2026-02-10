@@ -6,22 +6,37 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraftforge.common.MinecraftForge;
 import net.yixi_xun.affix_core.affix.operation.IOperation;
 import net.yixi_xun.affix_core.affix.operation.OperationManager;
-import net.yixi_xun.affix_core.api.AffixEvent;
+import net.yixi_xun.affix_core.api.AffixEvent.AffixExecuteEvent;
+import net.yixi_xun.affix_core.api.AffixEvent.AffixRemoveEvent;
 
 import static net.yixi_xun.affix_core.AffixCoreMod.LOGGER;
 import static net.yixi_xun.affix_core.api.ExpressionHelper.evaluateCondition;
 
 /**
  * 表示一个词缀，包含触发器、条件、操作、冷却时间和槽位限制等信息
- *
- * @param index 在物品NBT列表中的索引，用于冷却追踪
  */
-public record Affix(String trigger, String condition, IOperation operation, Long cooldown, int triggerCount, EquipmentSlot slot,
-                    int index) {
+public class Affix {
+    private final String trigger;
+    private final String condition;
+    private final IOperation operation;
+    private final Long cooldown;
+    private int triggerCount;
+    private final EquipmentSlot slot;
+    private final int index;
 
     /**
      * 从物品NBT中读取词缀信息
      */
+    public Affix(String trigger, String condition, IOperation operation, Long cooldown, int triggerCount, EquipmentSlot slot, int index) {
+        this.trigger = trigger;
+        this.condition = condition;
+        this.operation = operation;
+        this.cooldown = cooldown;
+        this.triggerCount = triggerCount;
+        this.slot = slot;
+        this.index = index;
+    }
+
     public static Affix fromNBT(CompoundTag nbt, int index) {
         // 读取触发器，默认为空
         String trigger = nbt.contains("Trigger") ? nbt.getString("Trigger") : "";
@@ -75,17 +90,26 @@ public record Affix(String trigger, String condition, IOperation operation, Long
         return new Affix(trigger, condition, operation, cooldown, triggerCount, slot, index);
     }
 
+    // Getter方法
+    public String trigger() { return trigger; }
+    public String condition() { return condition; }
+    public IOperation operation() { return operation; }
+    public Long cooldown() { return cooldown; }
+    public int triggerCount() { return triggerCount; }
+    public EquipmentSlot slot() { return slot; }
+    public int index() { return index; }
+
     /**
      * 将词缀保存到物品NBT中
      */
     public CompoundTag toNBT() {
         CompoundTag nbt = new CompoundTag();
 
-        if (trigger != null && !trigger.isEmpty()) {
+        if (trigger != null) {
             nbt.putString("Trigger", trigger);
         }
 
-        if (condition != null && !condition.isEmpty()) {
+        if (condition != null) {
             nbt.putString("Condition", condition);
         }
 
@@ -93,11 +117,11 @@ public record Affix(String trigger, String condition, IOperation operation, Long
             nbt.put("Operation", operation.toNBT());
         }
 
-        if (cooldown > 0) {
+        if (cooldown >= 0) {
             nbt.putLong("Cooldown", cooldown);
         }
 
-        if (triggerCount > 0) {
+        if (triggerCount >= 0) {
             nbt.putInt("TriggerCount", triggerCount);
         }
 
@@ -136,12 +160,13 @@ public record Affix(String trigger, String condition, IOperation operation, Long
     public void execute(AffixContext context) {
         if (operation != null) {
             // 触发词缀执行事件
-            AffixEvent.AffixExecuteEvent executeEvent = new AffixEvent.AffixExecuteEvent(context);
+            AffixExecuteEvent executeEvent = new AffixExecuteEvent(context);
             MinecraftForge.EVENT_BUS.post(executeEvent);
 
             if (executeEvent.isCanceled()) return;
 
             operation.apply(context);
+            this.triggerCount++;
         }
     }
 
@@ -151,7 +176,7 @@ public record Affix(String trigger, String condition, IOperation operation, Long
     public void remove(AffixContext context) {
         if (operation != null) {
             // 触发词缀移除事件
-            AffixEvent.AffixRemoveEvent removeEvent = new AffixEvent.AffixRemoveEvent(context);
+            AffixRemoveEvent removeEvent = new AffixRemoveEvent(context);
             MinecraftForge.EVENT_BUS.post(removeEvent);
 
             if (removeEvent.isCanceled()) return;

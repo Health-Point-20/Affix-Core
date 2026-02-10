@@ -10,8 +10,8 @@ import net.yixi_xun.affix_core.affix.AffixContext;
 
 import java.util.*;
 
+import static net.yixi_xun.affix_core.AffixCoreMod.queueServerWork;
 import static net.yixi_xun.affix_core.api.ExpressionHelper.evaluate;
-import static net.yixi_xun.affix_core.api.ServerWorkScheduler.queueServerWork;
 
 /**
  * 属性操作，用于修改实体的属性
@@ -69,7 +69,6 @@ public class AttributeOperation implements IOperation {
         var attributeInstance = targetEntity.getAttribute(attribute);
         if (attributeInstance != null && attributeInstance.getModifier(uuid) == null) {
             attributeInstance.addTransientModifier(modifier);
-            System.err.println("Applied attribute modifier: " + modifier + " Target" + targetEntity.getDisplayName());
 
             // 将修饰符添加到跟踪集合中，以便稍后可以移除
             String key = generateKey(context);
@@ -78,12 +77,10 @@ public class AttributeOperation implements IOperation {
             if (!isPermanent) {
                 // 计算持续时间
                 int duration = (int) evaluate(durationExpression, context.getVariables());
-                System.err.println("Duration: " + duration);
                 MODIFIERS.put(modifier, context.getWorld().getGameTime() + duration);
                 // 持续时间到后移除
                 queueServerWork(duration, () -> {
                             if (MODIFIERS.containsKey(modifier)) {
-                                System.err.println("Removing attribute modifier: " + modifier.getName());
                                 MODIFIERS.remove(modifier);
                                 attributeInstance.removeModifier(modifier);
 

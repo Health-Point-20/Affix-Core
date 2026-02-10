@@ -1,18 +1,22 @@
 package net.yixi_xun.affix_core.mixin;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import static net.yixi_xun.affix_core.tooltip.TooltipHandler.processColors;
+
 @Mixin(ItemStack.class)
-public abstract class ItemStackMaxDamageMixin {
+public abstract class ItemStackMixin {
 
     @Inject(
         method = "getMaxDamage()I",
-        at = @At("HEAD"),
+        at = @At("RETURN"),
         cancellable = true
     )
     private void injectRarityMaxDurability(CallbackInfoReturnable<Integer> cir) {
@@ -27,6 +31,23 @@ public abstract class ItemStackMaxDamageMixin {
                 tag.putInt("Damage", customMax);
             }
             cir.setReturnValue(customMax);
+        }
+    }
+
+    @Inject(
+            method = "getHoverName()Lnet/minecraft/network/chat/Component;",
+            at = @At("RETURN"),
+            cancellable = true
+    )
+    private void injectRarityHoverName(CallbackInfoReturnable<Component> cir) {
+        Component originalName = cir.getReturnValue();
+        // 处理颜色
+        if (originalName == null) return;
+        MutableComponent finalComponent = processColors(originalName.getString());
+
+        // 只有包含颜色标记的文本才处理颜色，否则保留原有样式
+        if (finalComponent != null) {
+            cir.setReturnValue(finalComponent);
         }
     }
 }

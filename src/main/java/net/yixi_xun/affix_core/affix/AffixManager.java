@@ -204,25 +204,27 @@ public class AffixManager {
     public static String getItemUniqueId(ItemStack itemStack) {
         CompoundTag nbt = itemStack.getOrCreateTag();
         
-        // 只有当物品有词缀时才分配UUID，避免影响普通物品堆叠
-        if (!nbt.contains(ITEM_UUID_NBT_KEY) && nbt.contains(AFFIX_TAG_KEY)) {
-            nbt.putUUID(ITEM_UUID_NBT_KEY, UUID.randomUUID());
+        // 如果已经有UUID，直接返回
+        if (nbt.contains(ITEM_UUID_NBT_KEY)) {
+            return nbt.getUUID(ITEM_UUID_NBT_KEY).toString();
+        }
+        
+        // 只有当物品有词缀时才分配UUID
+        if (nbt.contains(AFFIX_TAG_KEY)) {
+            UUID uuid = UUID.randomUUID();
+            nbt.putUUID(ITEM_UUID_NBT_KEY, uuid);
+            return uuid.toString();
         }
         
         // 如果物品没有词缀，使用物品的基本信息生成一个稳定的ID
-        if (!nbt.contains(ITEM_UUID_NBT_KEY)) {
-            // 对于没有词缀的物品，使用物品类型和基本NBT信息生成ID，以保持堆叠兼容性
-            String itemId = itemStack.getItem().getDescriptionId();
-            if (itemStack.hasTag()) {
-                // 如果有其他NBT但没有词缀，也加入NBT哈希以区分
-                itemId += "_" + itemStack.getOrCreateTag().hashCode();
-            }
-            return itemId;
+        String itemId = itemStack.getItem().getDescriptionId();
+        if (itemStack.hasTag()) {
+            // 如果有其他NBT但没有词缀，也加入NBT哈希以区分
+            itemId += "_" + itemStack.getOrCreateTag().hashCode();
         }
-        
-        return nbt.getUUID(ITEM_UUID_NBT_KEY).toString();
+        return itemId;
     }
-    
+
     /**
      * 检查冷却是否结束
      */

@@ -10,13 +10,19 @@ import net.minecraftforge.fml.event.config.ModConfigEvent;
 public class AFConfig {
     private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
 
-    public static final ForgeConfigSpec.BooleanValue ENABLE_ATTRIBUTE_TOOLTIP_MERGING;
+
+    // 范围伤害相关配置
+    public static final ForgeConfigSpec.DoubleValue MAX_AREA_DAMAGE_RANGE;
+    public static final ForgeConfigSpec.IntValue MAX_AREA_DAMAGE_ENTITIES;
     
     static {
-        BUILDER.push("tooltip");
-        ENABLE_ATTRIBUTE_TOOLTIP_MERGING = BUILDER
-            .comment("Enable merging of attribute tooltips for better readability (default: true)")
-            .define("enableAttributeTooltipMerging", true);
+        BUILDER.push("area_damage");
+        MAX_AREA_DAMAGE_RANGE = BUILDER
+            .comment("Maximum search range for area damage operations to prevent performance issues (default: 64.0)")
+            .defineInRange("maxAreaDamageRange", 64.0, 1.0, 256.0);
+        MAX_AREA_DAMAGE_ENTITIES = BUILDER
+            .comment("Maximum number of entities that can be affected by area damage to prevent performance issues (default: 64)")
+            .defineInRange("maxAreaDamageEntities", 128, 1, 1024);
         BUILDER.pop();
     }
 

@@ -51,30 +51,6 @@ public class HurtManager {
         }
     }
 
-    // 旧代码
-    /*@SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onHurt(LivingHurtEvent event) {
-        LivingEntity target = event.getEntity();
-        List<ExtraHurtData> extraHurtDataList = extraHurtQueue.get(target);
-
-        if (extraHurtDataList == null) return;
-
-        // 防止递归调用
-        Long lastDamageTime = lastDamagingTime.get(target);
-        if (lastDamageTime != null && target.level().getGameTime() == lastDamageTime) {
-            return;
-        }
-
-        for (ExtraHurtData extraHurtData : extraHurtDataList) {
-            if (extraHurtData != null) {
-                // 处理额外伤害
-                processExtraHurt(target, extraHurtData);
-            }
-        }
-        // 清除此实体的额外伤害数据
-        extraHurtQueue.remove(target);
-    }*/
-
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onTick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;

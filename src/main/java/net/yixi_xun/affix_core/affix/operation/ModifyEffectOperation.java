@@ -63,7 +63,7 @@ public class ModifyEffectOperation implements IOperation {
 
     @Override
     public String getType() {
-        return "on_effect_add";
+        return "effect_modify";
     }
 
     /**
@@ -80,6 +80,6 @@ public class ModifyEffectOperation implements IOperation {
      * 注册操作工厂
      */
     public static void register() {
-        OperationManager.registerFactory("on_effect_add", ModifyEffectOperation::fromNBT);
+        OperationManager.registerFactory("effect_modify", ModifyEffectOperation::fromNBT);
     }
 }

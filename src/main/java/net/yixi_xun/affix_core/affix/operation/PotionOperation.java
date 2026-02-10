@@ -17,19 +17,23 @@ public class PotionOperation implements IOperation {
     private final ResourceLocation effectId;
     private final String durationExpression;
     private final String amplifierExpression;
+    private final String maxAmplifierExpression;
     private final boolean ambient;
     private final boolean showParticles;
     private final boolean showIcon;
+    private final boolean overlayEffect;
     private final String targetString;
 
-    public PotionOperation(ResourceLocation effectId, String durationExpression, String amplifierExpression, boolean ambient, 
-                          boolean showParticles, boolean showIcon, String target) {
+    public PotionOperation(ResourceLocation effectId, String durationExpression, String amplifierExpression, String maxAmplifierExpression, boolean ambient, 
+                          boolean showParticles, boolean showIcon, boolean overrideExisting, String target) {
         this.effectId = effectId;
         this.durationExpression = durationExpression;
         this.amplifierExpression = amplifierExpression;
+        this.maxAmplifierExpression = maxAmplifierExpression;
         this.ambient = ambient;
         this.showParticles = showParticles;
         this.showIcon = showIcon;
+        this.overlayEffect = overrideExisting;
         this.targetString = target;
     }
 
@@ -51,14 +55,32 @@ public class PotionOperation implements IOperation {
         }
 
         // 计算药水效果的持续时间和等级
-        int computedDuration = (int) Math.max(0, ExpressionHelper.evaluate(durationExpression, context.getVariables()));
-        int computedAmplifier = (int) Math.max(0, ExpressionHelper.evaluate(amplifierExpression, context.getVariables()));
+        int amplifier = (int) Math.max(0, ExpressionHelper.evaluate(amplifierExpression, context.getVariables()));
+        int duration = (int) Math.max(0, ExpressionHelper.evaluate(durationExpression, context.getVariables()));
+        int maxAmplifier = (int) Math.max(0, ExpressionHelper.evaluate(maxAmplifierExpression, context.getVariables()));
+
+        // 处理效果叠加逻辑
+        MobEffectInstance existingEffect = target.getEffect(effect);
+        if (existingEffect != null && overlayEffect) {
+            // 将amplifier转换为等级
+            int existingLevel = existingEffect.getAmplifier() + 1;
+            int level = amplifier + 1; // 新增效果也转换为等级
+            
+            // 进行等级叠加
+            int finalLevel = existingLevel + level - 1; // 减1是因为等级1对应放大器0
+            
+            // 转换回amplifier并应用最大限制
+            amplifier = Math.min(finalLevel - 1, maxAmplifier);
+        } else {
+            // 直接应用
+            amplifier = Math.min(amplifier, maxAmplifier);
+        }
 
         // 创建药水效果实例
         MobEffectInstance effectInstance = new MobEffectInstance(
             effect, 
-            computedDuration, 
-            computedAmplifier, 
+            duration,
+            amplifier,
             ambient, 
             showParticles, 
             showIcon
@@ -83,6 +105,8 @@ public class PotionOperation implements IOperation {
         nbt.putBoolean("Ambient", ambient);
         nbt.putBoolean("ShowParticles", showParticles);
         nbt.putBoolean("ShowIcon", showIcon);
+        nbt.putBoolean("OverlayEffect", overlayEffect);
+        nbt.putString("MaxAmplifierExpression", maxAmplifierExpression);
         nbt.putString("Target", targetString);
         return nbt;
     }
@@ -104,9 +128,11 @@ public class PotionOperation implements IOperation {
         boolean ambient = nbt.contains("Ambient") && nbt.getBoolean("Ambient");
         boolean showParticles = !nbt.contains("ShowParticles") || nbt.getBoolean("ShowParticles");
         boolean showIcon = !nbt.contains("ShowIcon") || nbt.getBoolean("ShowIcon");
+        boolean overlayEffect = nbt.contains("OverlayEffect") && nbt.getBoolean("OverlayEffect");
+        String maxAmplifierExpression = nbt.contains("MaxAmplifierExpression") ? nbt.getString("MaxAmplifierExpression") : "4";
         String target = nbt.contains("Target") ? nbt.getString("Target") : "target";
 
-        return new PotionOperation(effectId, durationExpression, amplifierExpression, ambient, showParticles, showIcon, target);
+        return new PotionOperation(effectId, durationExpression, amplifierExpression, maxAmplifierExpression, ambient, showParticles, showIcon, overlayEffect, target);
     }
 
     /**

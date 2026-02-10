@@ -16,18 +16,18 @@ import static net.yixi_xun.affix_core.AffixCoreMod.LOGGER;
  * 命令执行操作，用于执行服务器命令
  */
 public class CommandOperation implements IOperation {
-    private final String commandExpression;  // 命令表达式，可能包含变量
+    private final String command;            // 命令表达式，可能包含变量
     private final String executor;           // 执行者类型：server(服务器), self(玩家)
 
-    public CommandOperation(String commandExpression, String executor) {
-        this.commandExpression = commandExpression != null ? commandExpression : "";
+    public CommandOperation(String command, String executor) {
+        this.command = command != null ? command : "";
         this.executor = executor != null ? executor : "server"; // 默认为服务器执行
     }
 
     @Override
     public void apply(AffixContext context) {
         // 检查命令表达式是否为空
-        if (commandExpression.trim().isEmpty()) {
+        if (command.trim().isEmpty()) {
             return; // 如果命令表达式为空，则不执行任何操作
         }
         
@@ -37,7 +37,7 @@ public class CommandOperation implements IOperation {
         }
 
         // 替换命令表达式中的变量
-        String processedCommand = replaceVariables(commandExpression, context.getVariables());
+        String processedCommand = replaceVariables(command, context.getVariables());
 
         // 确保命令以'/'开头
         if (!processedCommand.startsWith("/")) {
@@ -123,7 +123,7 @@ public class CommandOperation implements IOperation {
     public CompoundTag toNBT() {
         CompoundTag nbt = new CompoundTag();
         nbt.putString("Type", getType());
-        nbt.putString("CommandExpression", commandExpression);
+        nbt.putString("Command", command);
         nbt.putString("Executor", executor);
         return nbt;
     }
@@ -137,10 +137,10 @@ public class CommandOperation implements IOperation {
      * 工厂方法，从NBT创建CommandOperation
      */
     public static CommandOperation fromNBT(CompoundTag nbt) {
-        String commandExpression = nbt.contains("CommandExpression") ? nbt.getString("CommandExpression") : "";
+        String command = nbt.contains("Command") ? nbt.getString("Command") : "";
         String executor = nbt.contains("Executor") ? nbt.getString("Executor") : "server";
 
-        return new CommandOperation(commandExpression, executor);
+        return new CommandOperation(command, executor);
     }
 
     /**

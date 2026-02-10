@@ -12,6 +12,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -20,11 +21,13 @@ import net.yixi_xun.affix_core.affix.Affix;
 import net.yixi_xun.affix_core.affix.AffixManager;
 import net.yixi_xun.affix_core.affix.operation.IOperation;
 import net.yixi_xun.affix_core.affix.operation.OperationManager;
+import net.yixi_xun.affix_core.api.AffixEvent;
 
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+import static net.minecraftforge.common.MinecraftForge.EVENT_BUS;
 import static net.yixi_xun.affix_core.AffixCoreMod.LOGGER;
 
 /**
@@ -60,6 +63,9 @@ public class AffixCommands {
                     .then(Commands.argument("operation_type", StringArgumentType.string())
                         .suggests(AffixCommands::suggestOperationTypes)
                         .executes(context -> template(context, StringArgumentType.getString(context, "operation_type")))))
+                .then(Commands.literal("trigger")
+                        .then(Commands.argument("message", StringArgumentType.string())
+                                .executes(context -> trigger(context, StringArgumentType.getString(context, "message")))))
         );
     }
 
@@ -223,6 +229,17 @@ public class AffixCommands {
             LOGGER.warn("生成样板词缀失败: {}", e.getMessage());
             return 0;
         }
+    }
+
+    private static int trigger(CommandContext<CommandSourceStack> context, String message) {
+        if (context.getSource().getEntity() instanceof LivingEntity entity) {
+            AffixEvent.CustomMessageEvent event = new AffixEvent.CustomMessageEvent(entity, message);
+            EVENT_BUS.post(event);
+            context.getSource().sendSuccess(() -> Component.literal("已触发自定义消息事件: " + message), true);
+            return 1;
+        }
+        context.getSource().sendFailure(Component.literal("触发目标不符合要求"));
+        return 0;
     }
 
     private static ItemStack isValidItem(CommandContext<CommandSourceStack> context) {ServerPlayer player;

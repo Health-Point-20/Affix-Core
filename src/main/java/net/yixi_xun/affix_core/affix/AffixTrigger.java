@@ -13,6 +13,7 @@ import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.yixi_xun.affix_core.api.AffixEvent.CustomMessageEvent;
 
 import java.util.List;
 import java.util.Set;
@@ -194,9 +195,8 @@ public class AffixTrigger {
      */
     @SubscribeEvent
     public static void onUseTick(LivingEntityUseItemEvent.Tick event) {
-        processAffixTriggerWithVars(event.getEntity(), "on_use_tick", event, (context) -> {
-            context.addVariable("duration", event.getDuration());
-        });
+        processAffixTriggerWithVars(event.getEntity(), "on_use_tick", event, (context) ->
+                context.addVariable("duration", event.getDuration()));
     }
 
     /**
@@ -212,7 +212,17 @@ public class AffixTrigger {
      */
     @SubscribeEvent
     public static void onDrop(ItemTossEvent event) {
-        processAffixTrigger(event.getEntity(), "on_drop", event);
+        processAffixTriggerWithVars(event.getEntity(), "on_drop", event, (context ->
+                context.addVariable("item.name", event.getEntity().getItem().getDescriptionId())));
+    }
+
+    /**
+     * 自定义消息监听器
+     */
+    @SubscribeEvent
+    public static void onCustomMessage(CustomMessageEvent event) {
+        processAffixTriggerWithVars(event.getEntity(), "on_custom_message", event, (context ->
+                context.addVariable("message", event.getMessage())));
     }
 
     /**

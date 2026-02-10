@@ -1,5 +1,6 @@
 package net.yixi_xun.affix_core.api;
 
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraftforge.eventbus.api.Cancelable;
 import net.minecraftforge.eventbus.api.Event;
 import net.yixi_xun.affix_core.affix.AffixContext;
@@ -84,6 +85,27 @@ public abstract class AffixEvent extends Event {
 
         public AffixContext getContext() {
             return context;
+        }
+    }
+
+    /**
+     * 触发自定义事件
+     */
+    @Cancelable
+    public static class CustomMessageEvent extends AffixEvent {
+        private final LivingEntity entity;
+        private final String message;
+
+        public CustomMessageEvent(LivingEntity entity, String message) {
+            this.entity = entity;
+            this.message = message;
+        }
+
+        public LivingEntity getEntity() {
+            return entity;
+        }
+        public String getMessage() {
+            return message;
         }
     }
 }

@@ -42,23 +42,31 @@ public class AffixContext {
 
         // 初始化实体相关的复杂变量
         variables.put("self", createEntityData(owner));
-
-        // 注意：事件特定变量现在由调用者负责添加
     }
 
     // 创建实体数据映射
     public Map<String, Object> createEntityData(LivingEntity entity) {
+        return createEntityDataStatic(entity);
+    }
+    
+    /**
+     * 实体数据创建方法，可供其他类使用
+     */
+    public static Map<String, Object> createEntityDataStatic(LivingEntity entity) {
         Map<String, Object> entityData = new HashMap<>();
 
         if (entity == null) {
             return entityData; // 返回空映射
         }
 
-        // 基本健康状态
+        // 基本状态
         entityData.put("health", entity.getHealth());
         entityData.put("max_health", entity.getMaxHealth());
         entityData.put("absorption", entity.getAbsorptionAmount());
         entityData.put("level", entity instanceof Player player ? player.experienceLevel : 0);
+        entityData.put("x", entity.getX());
+        entityData.put("y", entity.getY());
+        entityData.put("z", entity.getZ());
 
         // 字符串信息
         entityData.put("name", entity.getName().getString());
@@ -83,7 +91,7 @@ public class AffixContext {
     }
 
     // 解析NBT复合标签
-    private Map<String, Object> parseNbtCompound(CompoundTag compound) {
+    private static Map<String, Object> parseNbtCompound(CompoundTag compound) {
         Map<String, Object> result = new HashMap<>();
 
         for (String key : compound.getAllKeys()) {
@@ -95,7 +103,7 @@ public class AffixContext {
     }
 
     // 解析NBT标签
-    private Object parseNbtTag(Tag tag) {
+    private static Object parseNbtTag(Tag tag) {
         if (tag instanceof NumericTag numericTag) {
             return numericTag.getAsDouble();
         } else if (tag instanceof StringTag stringTag) {
