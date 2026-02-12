@@ -97,7 +97,7 @@ public class CuriosEventHandler {
         try {
             CuriosApi.getCuriosInventory(entity).ifPresent(inventory -> {
                 for (Map.Entry<String, ICurioStacksHandler> entry : inventory.getCurios().entrySet()) {
-                    collectAffixesFromHandler(entry.getValue(), entry.getKey(), affixLocationMap, validAffixes);
+                    collectAffixesFromHandler(entry.getValue(), affixLocationMap, validAffixes);
                 }
             });
         } catch (Exception e) {
@@ -105,7 +105,7 @@ public class CuriosEventHandler {
         }
     }
 
-    private static void collectAffixesFromHandler(ICurioStacksHandler handler, String slotIdentifier, Map<Affix, ItemStack> affixLocationMap, List<Affix> validAffixes) {
+    private static void collectAffixesFromHandler(ICurioStacksHandler handler, Map<Affix, ItemStack> affixLocationMap, List<Affix> validAffixes) {
         for (int i = 0; i < handler.getSlots(); i++) {
             ItemStack stack = handler.getStacks().getStackInSlot(i);
             if (stack.isEmpty()) continue;
