@@ -210,7 +210,7 @@ public class AffixCommands {
             }
             
             // 创建一个默认的词缀对象，包含默认操作
-            Affix defaultAffix = new Affix("on_attack", "", operation, 0L, 0, null, 0);
+            Affix defaultAffix = new Affix("on_attack", "", operation, 0L, 0, null, null, 0,0);
             
             // 将词缀转换回NBT格式以获取完整的默认NBT结构
             CompoundTag affixNbt = defaultAffix.toNBT();

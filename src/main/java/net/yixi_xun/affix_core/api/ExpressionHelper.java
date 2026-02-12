@@ -1,9 +1,11 @@
 package net.yixi_xun.affix_core.api;
 
+import net.minecraft.nbt.*;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.*;
@@ -55,10 +57,6 @@ public class ExpressionHelper {
 
     // 表达式缓存
     private static final Map<String, List<Token>> EXPRESSION_CACHE = new ConcurrentHashMap<>();
-
-    public static void clearCache() {
-        EXPRESSION_CACHE.clear();
-    }
 
     /**
      * 计算数学表达式
@@ -343,23 +341,18 @@ public class ExpressionHelper {
         return result instanceof Number ? ((Number) result).doubleValue() : 0.0;
     }
 
-    // 解析带点的变量路径，如 self.effect.minecraft:speed.duration 或 target.name
+    // 解析带点的变量路径，如 self.effect.minecraft:speed.duration
     private static Object resolveVariablePath(String varPath, Map<String, ?> variables) {
-        // 首先检查是否存在直接匹配的变量
         if (variables.containsKey(varPath)) {
             return variables.get(varPath);
         }
 
-        // 尝试解析带点的路径
         String[] parts = varPath.split("\\.");
-
-        // 查找最可能的根变量
+        // 查找根变量
         for (int i = parts.length; i > 0; i--) {
             String rootVar = String.join(".", Arrays.copyOfRange(parts, 0, i));
             if (variables.containsKey(rootVar)) {
                 Object rootValue = variables.get(rootVar);
-
-                // 如果存在剩余部分，则尝试导航到子属性
                 if (i < parts.length) {
                     return navigatePath(rootValue, Arrays.copyOfRange(parts, i, parts.length));
                 } else {
@@ -367,101 +360,100 @@ public class ExpressionHelper {
                 }
             }
         }
-
         return null;
     }
 
-    // 导航对象路径
+    // 导航对象路径 (核心优化：按需获取实体数据)
     private static Object navigatePath(Object obj, String[] pathParts) {
         Object current = obj;
 
         for (String part : pathParts) {
-            if (current == null) {
-                return 0.0;
-            }
+            if (current == null) return 0.0;
 
-            // 如果是Map类型，尝试获取键对应的值
             if (current instanceof Map<?, ?> map) {
                 if (map.containsKey(part)) {
                     current = map.get(part);
-                } else {
-                    // 检查是否需要特殊处理（如实体属性、效果、名称、类型）
-                    if (map.containsKey("entity_ref")) {
-                        Object entityRef = map.get("entity_ref");
-                        if (entityRef instanceof LivingEntity entity) {
-                            current = getEntityProperty(entity, part);
-                        } else {
-                            return 0.0;
-                        }
+                } else if (map.containsKey("entity_ref")) {
+                    // 优化点：检测到 entity_ref 时，动态处理 attribute/effect/nbt
+                    // 避免在创建 Map 时就遍历所有属性/效果，极大提升性能
+                    Object entityRef = map.get("entity_ref");
+                    if (entityRef instanceof LivingEntity entity) {
+                        current = handleEntityPropertyDynamic(entity, part);
                     } else {
-                        return 0.0; // 键不存在且无实体引用
+                        return 0.0;
                     }
+                } else {
+                    return 0.0;
                 }
-            }
-            // 如果是LivingEntity对象，处理属性和效果
-            else if (current instanceof LivingEntity entity) {
-                current = getEntityProperty(entity, part);
-            }
-            else {
+            } else if (current instanceof LivingEntity entity) {
+                current = handleEntityPropertyDynamic(entity, part);
+            } else {
                 return 0.0;
             }
         }
-
         return current;
     }
 
-    // 统一获取实体属性的方法
-    private static Object getEntityProperty(LivingEntity entity, String part) {
+    // 动态处理实体属性，避免全量加载
+    private static Object handleEntityPropertyDynamic(LivingEntity entity, String part) {
         return switch (part) {
-            case "attribute" -> getEntityAttributes(entity);
-            case "effect" -> getEntityEffects(entity);
+            case "attribute" -> new EntityAttributeWrapper(entity); // 返回一个包装器，支持后续路径查找
+            case "effect" -> new EntityEffectWrapper(entity);
+            case "nbt" -> parseNbtCompound(entity.getPersistentData()); // NBT 通常较小，暂保留全量解析或可进一步优化
             default -> 0.0;
         };
     }
 
-    // 按需获取实体属性
-    private static Map<String, Object> getEntityAttributes(LivingEntity entity) {
-        Map<String, Object> attributes = new HashMap<>();
+    // 包装器类，用于延迟获取特定属性 (替代原先的 getEntityAttributes 全量获取)
+    private static class EntityAttributeWrapper extends HashMap<String, Object> {
+        private final LivingEntity entity;
 
-        for (Attribute attribute : ForgeRegistries.ATTRIBUTES) {
+        public EntityAttributeWrapper(LivingEntity entity) {
+            this.entity = entity;
+        }
+
+        @Override
+        public Object get(Object key) {
+            // 实时查找属性，而不是遍历注册表
+            // 这里的 key 可能是 "generic.attack_damage" 或 "minecraft:generic.attack_damage"
+            Attribute attribute = ForgeRegistries.ATTRIBUTES.getValue(ResourceLocation.tryParse(key.toString()));
             if (attribute != null) {
-                var attributeId = ForgeRegistries.ATTRIBUTES.getKey(attribute);
-                if (attributeId == null) {
-                    continue;
+                AttributeInstance instance = entity.getAttribute(attribute);
+                return instance != null ? instance.getValue() : 0.0;
+            }
+            return 0.0;
+        }
+
+        @Override
+        public boolean containsKey(Object key) {
+            return ForgeRegistries.ATTRIBUTES.getValue(ResourceLocation.tryParse(key.toString())) != null;
+        }
+    }
+
+    // 包装器类，用于延迟获取效果
+    private static class EntityEffectWrapper extends HashMap<String, Object> {
+        private final LivingEntity entity;
+
+        public EntityEffectWrapper(LivingEntity entity) {
+            this.entity = entity;
+        }
+
+        @Override
+        public Object get(Object key) {
+            // key 通常是 registry name，如 "minecraft:speed"
+            net.minecraft.resources.ResourceLocation effectId = ResourceLocation.tryParse(key.toString());
+            var effect = ForgeRegistries.MOB_EFFECTS.getValue(effectId);
+            if (effect != null) {
+                MobEffectInstance instance = entity.getEffect(effect);
+                if (instance != null) {
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("duration", instance.getDuration());
+                    data.put("amplifier", instance.getAmplifier());
+                    return data;
                 }
-                String attrName = attributeId.getPath();
-                attributes.put(attrName, getAttributeValue(entity, attribute));
             }
+            return 0.0;
         }
-
-        return attributes;
-    }
-
-    // 获取属性值
-    private static double getAttributeValue(LivingEntity entity, Attribute attribute) {
-        AttributeInstance instance = entity.getAttribute(attribute);
-        return instance != null ? instance.getValue() : 0.0;
-    }
-
-    // 按需获取实体效果
-    private static Map<String, Object> getEntityEffects(LivingEntity entity) {
-        Map<String, Object> effects = new HashMap<>();
-
-        for (MobEffectInstance effectInstance : entity.getActiveEffects()) {
-            var effectId = ForgeRegistries.MOB_EFFECTS.getKey(effectInstance.getEffect());
-            if (effectId == null) {
-                continue;
-            }
-            String effectName = effectId.toString();
-            Map<String, Object> effectData = new HashMap<>();
-            effectData.put("duration", effectInstance.getDuration());
-            effectData.put("amplifier", effectInstance.getAmplifier());
-            effectData.put("is_ambient", effectInstance.isAmbient() ? 1.0 : 0.0);
-            effectData.put("visible", effectInstance.isVisible() ? 1.0 : 0.0);
-            effects.put(effectName, effectData);
-        }
-
-        return effects;
     }
 
     // 分离的算术运算处理方法
@@ -489,6 +481,41 @@ public class ExpressionHelper {
             default -> throw new IllegalArgumentException("Unknown operator: " + token.value);
         };
         valueStack.push(result);
+    }
+
+    // 解析NBT复合标签
+    private static Map<String, Object> parseNbtCompound(CompoundTag compound) {
+        Map<String, Object> result = new HashMap<>();
+
+        for (String key : compound.getAllKeys()) {
+            Tag tag = compound.get(key);
+            result.put(key, parseNbtTag(tag));
+        }
+
+        return result;
+    }
+
+    // 解析NBT标签
+    public static Object parseNbtTag(Tag tag) {
+        if (tag instanceof NumericTag numericTag) {
+            return numericTag.getAsDouble();
+        } else if (tag instanceof StringTag stringTag) {
+            return stringTag.getAsString();
+        } else if (tag instanceof CompoundTag compoundTag) {
+            return parseNbtCompound(compoundTag);
+        } else if (tag instanceof ListTag listTag) {
+            // 对于列表，只取数值类型元素的平均值
+            if (!listTag.isEmpty() && listTag.getElementType() == Tag.TAG_ANY_NUMERIC) {
+                double sum = 0;
+                for (int i = 0; i < listTag.size(); i++) {
+                    sum += listTag.getDouble(i);
+                }
+                return sum / listTag.size();
+            }
+            return listTag.size(); // 返回列表大小
+        } else {
+            return tag.getAsString();
+        }
     }
 
     // 分离的比较运算处理方法 (增强：支持字符串比较)

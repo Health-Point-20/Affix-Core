@@ -52,7 +52,7 @@ public class AffixCoreMod {
             List<AbstractMap.SimpleEntry<Runnable, Integer>> actions = new ArrayList<>();
             workQueue.forEach(work -> {
                 work.setValue(work.getValue() - 1);
-                if (work.getValue() == 0)
+                if (work.getValue() <= 0)
                     actions.add(work);
             });
             actions.forEach(e -> e.getKey().run());

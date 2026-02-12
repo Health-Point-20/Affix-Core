@@ -28,7 +28,7 @@ public class DealDamageOperation implements IOperation {
     private final String isExtraDamage;          // 是否为额外伤害(不递归，不影响受击无敌时间)
     private final String target;                 // 目标实体
     private final String sourceEntity;           // 伤害源实体
-    private final String isAreaDamage;
+    private final String isAreaDamage;           // 是否为范围伤害
     private final String maxEntitiesExpression;  // 范围伤害最大实体数表达式
     private final String rangeExpression;        // 范围伤害半径表达式
 
@@ -142,12 +142,12 @@ private void applyAreaDamage(AffixContext context, LivingEntity centerEntity, Da
     int maxEntities = (int) evaluate(maxEntitiesExpression, context.getVariables());
     double range = evaluate(rangeExpression, context.getVariables());
     
-    // 为0视为无限制，但使用配置中的最大值来避免性能问题
+    // 为0视为无限制，使用配置中的最大值
     if (maxEntities < 0 || range < 0) {
         return; // 无效的范围参数
     }
     
-    // 应用配置限制：当范围为0或负数时，使用配置的最大范围
+    // 应用配置限制：当范围为0时，使用配置的最大范围
     double effectiveRange = range > 0 ? range : AFConfig.MAX_AREA_DAMAGE_RANGE.get();
     int effectiveMaxEntities = maxEntities > 0 ? maxEntities : AFConfig.MAX_AREA_DAMAGE_ENTITIES.get();
     
@@ -180,7 +180,7 @@ private void applyAreaDamage(AffixContext context, LivingEntity centerEntity, Da
         }
         // 尝试解析为ResourceLocation
         ResourceLocation location = ResourceLocation.tryParse(damageTypeId);
-        if (location != null) {
+        if (location != null && !location.getPath().isEmpty()) {
             return ResourceKey.create(Registries.DAMAGE_TYPE, location);
         }
         

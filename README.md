@@ -170,6 +170,31 @@ Affix_Core 是一个功能强大的Minecraft Forge模组，提供了一套完整
 - `MAX_AREA_DAMAGE_RANGE`: 最大范围伤害半径
 - `MAX_AREA_DAMAGE_ENTITIES`: 范围伤害最大实体数量
 
+### Curios API 集成
+
+**支持的Curios槽位**:
+- `necklace` - 项链
+- `back` - 背部
+- `belt` - 腰带
+- `hands` - 手部
+- `ring` - 戒指
+- `charm` - 饰品
+- `bracelet` - 手镯
+- `head_curios` - 头部饰品
+- `body` - 身体
+- `feet_curios` - 足部饰品
+- `quiver` - 箭袋
+- `curio` - 通用饰品
+
+**词缀槽位限制**:
+可在词缀NBT中使用 `Slot` 字段指定限制槽位：
+```json
+{
+  "Slot": "necklace",
+  "Trigger": "on_equip"
+}
+```
+
 ## 许可证
 
 本项目采用 [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0) 许可证。

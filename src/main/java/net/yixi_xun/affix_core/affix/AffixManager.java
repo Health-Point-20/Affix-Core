@@ -40,7 +40,9 @@ public class AffixManager {
         CancelEventOperation.register();
         CommandOperation.register();
         ModifyDurationOperation.register();
-        net.yixi_xun.affix_core.affix.operation.HealthOperation.register();
+        HealthOperation.register();
+        CustomMessageOperation.register();
+        DisableAffixesOperation.register();
 
         AffixEvent.RegisterOperationEvent event = new AffixEvent.RegisterOperationEvent();
         MinecraftForge.EVENT_BUS.post(event);

@@ -40,13 +40,14 @@ public class RepeatCommand {
                                             String commandToExecute = input.substring(cursor).trim();
 
                                             if (!commandToExecute.isEmpty()) {
+                                                // 保存当前执行上下文
                                                 CommandSourceStack source = context.getSource();
                                                 Vec3 pos = source.getPosition();
                                                 Entity entity = source.getEntity();
                                                 CommandSourceStack originalSource = source.withSuppressedOutput();
 
-                                                // 安排重复执行
-                                                for (int i = 1; i <= count; i++) {
+                                                // 重复执行
+                                                for (int i = 0; i < count; i++) {
                                                     final int iteration = i;
                                                     AffixCoreMod.queueServerWork(i * interval, () -> {
                                                         try {
@@ -62,11 +63,11 @@ public class RepeatCommand {
 
                                                             if (AffixCoreMod.LOGGER.isDebugEnabled()) {
                                                                 AffixCoreMod.LOGGER.debug("Executed repeated command [{}/{}]: {}",
-                                                                        iteration, count, commandToExecute);
+                                                                        iteration + 1, count, commandToExecute);
                                                             }
                                                         } catch (Exception e) {
                                                             AffixCoreMod.LOGGER.error("Failed to execute repeated command [{}/{}]: {}",
-                                                                    iteration, count, commandToExecute, e);
+                                                                    iteration + 1, count, commandToExecute, e);
                                                         }
                                                     });
                                                 }

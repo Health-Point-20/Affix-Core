@@ -3,6 +3,7 @@ package net.yixi_xun.affix_core.api;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraftforge.eventbus.api.Cancelable;
 import net.minecraftforge.eventbus.api.Event;
+import net.yixi_xun.affix_core.affix.Affix;
 import net.yixi_xun.affix_core.affix.AffixContext;
 import net.yixi_xun.affix_core.affix.operation.OperationManager;
 
@@ -61,14 +62,20 @@ public abstract class AffixEvent extends Event {
      */
     @Cancelable
     public static class AffixExecuteEvent extends AffixEvent {
+        private final Affix affix;
         private final AffixContext context;
 
-        public AffixExecuteEvent(AffixContext context) {
+        public AffixExecuteEvent(Affix affix, AffixContext context) {
+            this.affix = affix;
             this.context = context;
         }
 
         public AffixContext getContext() {
             return context;
+        }
+
+        public Affix getAffix() {
+            return affix;
         }
     }
 

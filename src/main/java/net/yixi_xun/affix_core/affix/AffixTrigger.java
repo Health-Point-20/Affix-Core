@@ -4,7 +4,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.event.entity.item.ItemTossEvent;
 import net.minecraftforge.event.entity.living.*;
@@ -14,13 +13,16 @@ import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.yixi_xun.affix_core.api.AffixEvent.CustomMessageEvent;
+import net.yixi_xun.affix_core.curios.CuriosEventHandler;
 
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Consumer;
 
+import static net.yixi_xun.affix_core.AffixCoreMod.LOGGER;
 import static net.yixi_xun.affix_core.AffixCoreMod.MODID;
+import static net.yixi_xun.affix_core.affix.AffixContext.createEntityData;
 import static net.yixi_xun.affix_core.affix.AffixManager.getAffixes;
+import static net.yixi_xun.affix_core.affix.AffixProcessor.handleItemRemoval;
 
 @Mod.EventBusSubscriber(modid = MODID)
 public class AffixTrigger {
@@ -33,17 +35,17 @@ public class AffixTrigger {
             LivingEntity target = event.getEntity();
             context.addVariable("damage", event.getAmount());
             context.addVariable("damage_type", event.getSource().type().msgId());
-            context.addVariable("target", context.createEntityData(target));
+            context.addVariable("target", createEntityData(target));
             context.addVariable("distance", context.getOwner().distanceTo(target));
         });
         processAffixTriggerWithVars(event.getEntity(), "on_hurt", event, (context) -> {
             context.addVariable("damage", event.getAmount());
             context.addVariable("damage_type", event.getSource().type().msgId());
             if (event.getSource().getEntity() instanceof LivingEntity attacker) {
-                context.addVariable("attacker", context.createEntityData(attacker));
+                context.addVariable("attacker", createEntityData(attacker));
                 context.addVariable("distance", context.getOwner().distanceTo(attacker));
             } else {
-                context.addVariable("attacker", context.createEntityData(context.getOwner())); // 默认为自身
+                context.addVariable("attacker", createEntityData(context.getOwner())); // 默认为自身
                 context.addVariable("distance", 0);
             }
         });
@@ -56,14 +58,14 @@ public class AffixTrigger {
     public static void onDeath(LivingDeathEvent event) {
         processAffixTriggerWithVars(event.getSource().getEntity(), "on_kill", event, (context) -> {
             LivingEntity target = event.getEntity();
-            context.addVariable("target", target != null ? context.createEntityData(target) : context.createEntityData(context.getOwner()));
+            context.addVariable("target", target != null ? createEntityData(target) : createEntityData(context.getOwner()));
             context.addVariable("distance", context.getOwner().distanceTo(target != null ? target : context.getOwner()));
         });
         processAffixTriggerWithVars(event.getEntity(), "on_death", event, (context) -> {
             LivingEntity killer = event.getSource().getEntity() instanceof LivingEntity ?
                     (LivingEntity) event.getSource().getEntity() : null;
             context.addVariable("damage_type", event.getSource().type().msgId());
-            context.addVariable("killer", killer != null ? context.createEntityData(killer) : context.createEntityData(context.getOwner()));
+            context.addVariable("killer", killer != null ? createEntityData(killer) : createEntityData(context.getOwner()));
             context.addVariable("distance", killer != null ? context.getOwner().distanceTo(killer) : 0);
         });
     }
@@ -94,9 +96,7 @@ public class AffixTrigger {
             if (affixes.isEmpty()) return;
             for (Affix affix : affixes) {
                 if (affix != null) {
-                    // 为 on_remove 事件创建基础的 AffixContext
-                    AffixContext context = new AffixContext(entity.level(), entity, from, affix, "on_remove", null);
-                    affix.remove(context);
+                    handleItemRemoval(entity, from, affix);
                 }
             }
         }
@@ -144,7 +144,7 @@ public class AffixTrigger {
     public static void onInteractEntity(PlayerInteractEvent.EntityInteract event) {
         processAffixTriggerWithVars(event.getEntity(), "on_right_click_entity", event, (context) -> {
             if (event.getTarget() instanceof LivingEntity target) {
-                context.addVariable("target", context.createEntityData(target));
+                context.addVariable("target", createEntityData(target));
             }
         });}
 
@@ -155,7 +155,7 @@ public class AffixTrigger {
     public static void onLeftClickEntity(AttackEntityEvent event) {
         processAffixTriggerWithVars(event.getEntity(), "on_left_click_entity", event, (context) -> {
             if (event.getTarget() instanceof LivingEntity target) {
-                context.addVariable("target", context.createEntityData(target));
+                context.addVariable("target", createEntityData(target));
             }
         });
     }
@@ -228,131 +228,100 @@ public class AffixTrigger {
     /**
      * 处理词缀触发
      */
-    private static void processAffixTrigger(Entity entity, String trigger, Event event) {
+    public static void processAffixTrigger(Entity entity, String trigger, Event event) {
         processAffixTriggerWithVars(entity, trigger, event, (context) -> {});
     }
 
     /**
      * 处理词缀触发，带事件特定变量设置
+     * 按照优先级顺序执行词缀
+     * 
+     * @param entity 触发实体
+     * @param trigger 触发器名称
+     * @param event 事件对象
+     * @param eventVarSetter 事件变量设置器
      */
-    private static void processAffixTriggerWithVars(Entity entity, String trigger, Event event, Consumer<AffixContext> eventVarSetter) {
-        // 只处理玩家实体
+    public static void processAffixTriggerWithVars(Entity entity, String trigger, Event event, Consumer<AffixContext> eventVarSetter) {
+        // 只处理实体
         if (!(entity instanceof LivingEntity living)) {
             return;
         }
 
-        // 遍历所有装备槽位
+        try {
+            // 预先构建词缀到槽位的映射，避免重复查询
+            Map<Affix, ItemStack> affixLocationMap = new HashMap<>();
+            List<Affix> validAffixes = new ArrayList<>();
+
+            // 收集所有装备槽位上的词缀，并进行预过滤
+            collectEquipmentAffixes(living, trigger, affixLocationMap, validAffixes);
+            
+            // 收集所有Curios槽位上的词缀
+            CuriosEventHandler.getAllCuriosAffixes(living, affixLocationMap, validAffixes);
+
+            if (validAffixes.isEmpty()) return;
+
+            // 按优先级排序（数值越大优先级越高）
+            validAffixes.sort(Comparator.comparingLong(Affix::priority).reversed());
+
+            // 按优先级顺序处理每个词缀
+            processAffixesInOrder(living, trigger, event, eventVarSetter, affixLocationMap, validAffixes);
+        } catch (Exception e) {
+            LOGGER.error("处理词缀触发时发生错误", e);
+        }
+    }
+    
+    /**
+     * 收集装备槽位上的词缀
+     */
+    private static void collectEquipmentAffixes(LivingEntity living, String trigger, 
+                                               Map<Affix, ItemStack> affixLocationMap, List<Affix> validAffixes) {
+        Set<String> triggerSet = Collections.singleton(trigger);
+        
         for (EquipmentSlot slot : EquipmentSlot.values()) {
-            ItemStack itemStack = living.getItemBySlot(slot);
-
-            // 获取物品上的所有词缀
-            List<Affix> affixes = getAffixes(itemStack);
-
-            if (affixes.isEmpty()) {
-                continue;
-            }
-
-            // 处理每个词缀
-            for (Affix affix : affixes) {
-                if (affix == null) {
-                    continue; // 跳过null的affix
-                }
-                
-                Set<String> triggers = Set.of(affix.trigger().split(","));
-                // 检查触发器是否匹配
-                if (!triggers.contains(trigger)) {
-                    continue;
-                }
-
-                // 检查槽位是否允许触发
-                if (affix.triggerInInvalidSlot(slot)) {
-                    continue;
-                }
-
-                // 创建词缀上下文
-                AffixContext context = new AffixContext(
-                        living.level(),
-                        living,
-                        itemStack,
-                        affix,
-                        trigger,
-                        event
-                );
-
-                // 设置事件特定变量
-                eventVarSetter.accept(context);
-
-                // 检查冷却
-                if (affix.cooldown() > 0 && context.inCooldown()) {
-                    continue;
-                }
-
-                // 检查条件
-                if (!affix.checkCondition(context)) {
-                    continue;
-                }
-
-                // 执行操作
-                affix.execute(context);
-
-                // 设置冷却
-                if (affix.cooldown() > 0) {
-                    context.setCooldown(affix.cooldown());
+            ItemStack stack = living.getItemBySlot(slot);
+            if (stack.isEmpty()) continue;
+            
+            List<Affix> slotAffixes = getAffixes(stack);
+            for (Affix affix : slotAffixes) {
+                if (affix != null && isTriggerMatch(affix.trigger(), triggerSet) && !affix.triggerInInvalidSlot(slot)) {
+                    affixLocationMap.put(affix, stack);
+                    validAffixes.add(affix);
                 }
             }
         }
     }
     
     /**
-     * 手动触发词缀
+     * 按优先级顺序处理词缀
      */
-    public static void trigger(ItemStack itemStack, LivingEntity entity, Level level, EquipmentSlot slot, String trigger) {
-        // 获取物品上的所有词缀
-        List<Affix> affixes = getAffixes(itemStack);
+    private static void processAffixesInOrder(LivingEntity living, String trigger, Event event, 
+                                             Consumer<AffixContext> eventVarSetter,
+                                             Map<Affix, ItemStack> affixLocationMap, List<Affix> validAffixes) {
+        for (Affix affix : validAffixes) {
+            ItemStack foundStack = affixLocationMap.get(affix);
+            if (foundStack == null) continue;
 
-        // 处理每个词缀
-        for (Affix affix : affixes) {
-            if (affix == null) {
-                continue; // 跳过null的affix
-            }
-            
-            // 检查触发器是否匹配
-            if (!trigger.equals(affix.trigger())) {
-                continue;
-            }
-
-            // 检查槽位是否允许触发
-            if (affix.triggerInInvalidSlot(slot)) {
-                continue;
-            }
-
-            // 创建词缀上下文
-            AffixContext context = new AffixContext(
-                    level,
-                    entity,
-                    itemStack,
-                    affix,
-                    trigger,
-                    null
-            );
-
-            // 检查冷却
-            if (affix.cooldown() > 0 && context.inCooldown()) {
-                continue;
-            }
-
-            // 检查条件
-            if (!affix.checkCondition(context)) {
-                continue;
-            }
-
-            // 执行操作
-            affix.execute(context);
-
-            // 设置冷却
-            if (affix.cooldown() > 0) {
-                context.setCooldown(affix.cooldown());
-            }
+            processSingleAffix(living, affix, foundStack, trigger, event, eventVarSetter);
         }
     }
+    
+    /**
+     * 处理单个词缀
+     */
+    private static void processSingleAffix(LivingEntity living, Affix affix, ItemStack itemStack, 
+                                          String trigger, Event event, Consumer<AffixContext> eventVarSetter) {
+        AffixProcessor.processSingleAffix(living, affix, itemStack, trigger, event, eventVarSetter, null);
+    }
+    
+    /**
+     * 检查触发器是否匹配
+     * 
+     * @param affixTrigger 词缀定义的触发器字符串
+     * @param triggerSet 当前事件的触发器集合
+     * @return 是否匹配
+     */
+    private static boolean isTriggerMatch(String affixTrigger, Set<String> triggerSet) {
+        return AffixProcessor.isTriggerMatch(affixTrigger, triggerSet);
+    }
+
 }

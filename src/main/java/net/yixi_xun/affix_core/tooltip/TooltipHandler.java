@@ -3,7 +3,8 @@ package net.yixi_xun.affix_core.tooltip;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.nbt.*;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
@@ -25,9 +26,10 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static net.yixi_xun.affix_core.api.ExpressionHelper.parseNbtTag;
+
 /**
- * 优化版Tooltip处理器
- * 整合了AffixContext的数据结构，提高了代码复用性和维护性
+ * Tooltip处理器
  */
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public class TooltipHandler {
@@ -80,12 +82,12 @@ public class TooltipHandler {
     private static Map<String, Object> createContextVariables(Player player, ItemStack itemStack) {
         Map<String, Object> variables = new HashMap<>();
         
-        // 初始化基本变量（类似AffixContext）
+        // 初始化基本变量
         variables.put("random", Math.random());
         
-        // 创建实体数据（复用AffixContext的逻辑）
-        variables.put("owner", AffixContext.createEntityDataStatic(player));
-        variables.put("self", AffixContext.createEntityDataStatic(player));
+        // 创建实体数据
+        variables.put("owner", AffixContext.createEntityData(player));
+        variables.put("self", AffixContext.createEntityData(player));
         
         // 创建物品数据
         variables.put("item", createItemData(itemStack));
@@ -118,7 +120,7 @@ public class TooltipHandler {
     }
     
     /**
-     * 解析NBT复合标签（复用AffixContext的逻辑）
+     * 解析NBT复合标签
      */
     private static Map<String, Object> parseNbtCompound(CompoundTag compound) {
         Map<String, Object> result = new HashMap<>();
@@ -132,31 +134,7 @@ public class TooltipHandler {
     }
     
     /**
-     * 解析NBT标签（复用AffixContext的逻辑）
-     */
-    private static Object parseNbtTag(Tag tag) {
-        if (tag instanceof NumericTag numericTag) {
-            return numericTag.getAsDouble();
-        } else if (tag instanceof StringTag stringTag) {
-            return stringTag.getAsString();
-        } else if (tag instanceof CompoundTag compoundTag) {
-            return parseNbtCompound(compoundTag);
-        } else if (tag instanceof ListTag listTag) {
-            if (!listTag.isEmpty() && listTag.getElementType() == Tag.TAG_ANY_NUMERIC) {
-                double sum = 0;
-                for (int i = 0; i < listTag.size(); i++) {
-                    sum += listTag.getDouble(i);
-                }
-                return sum / listTag.size();
-            }
-            return listTag.size();
-        } else {
-            return tag.getAsString();
-        }
-    }
-    
-    /**
-     * 处理占位符替换（优化版，使用统一的变量解析）
+     * 处理占位符替换
      */
     private static String processPlaceholders(String text, Map<String, Object> contextVariables) {
         Matcher matcher = PLACEHOLDER_PATTERN.matcher(text);
@@ -247,7 +225,7 @@ public class TooltipHandler {
     }
     
     /**
-     * 评估条件（优化版，添加null检查）
+     * 评估条件
      */
     private static boolean evaluateCondition(String condition, Player player) {
         // 处理按键条件
@@ -370,20 +348,20 @@ public class TooltipHandler {
         // 处理颜色
         if (colorPart.contains("->")) {
             // 渐变色: red -> #FFFFFF -> #000000
-            style = handleGradientColor(colorPart);
+            style = handleGradientColor(colorPart).withItalic(false);
         } else if (colorPart.contains("-")) {
             // 循环色: red-blue-yellow
-            style = handleCycleColor(colorPart);
+            style = handleCycleColor(colorPart).withItalic(false);
         } else {
             // 单色
             ChatFormatting colorFormatting = getColorFormatting(colorPart);
             if (colorFormatting != null) {
-                style = style.applyFormat(colorFormatting);
+                style = style.applyFormat(colorFormatting).withItalic(false);
             } else {
                 // 尝试解析十六进制颜色
                 try {
                     int color = Integer.parseInt(colorPart.replace("#", ""), 16);
-                    style = style.withColor(TextColor.fromRgb(color));
+                    style = style.withColor(TextColor.fromRgb(color)).withItalic(false);
                 } catch (NumberFormatException e) {
                     // 无效颜色，保持默认
                 }
@@ -435,7 +413,7 @@ public class TooltipHandler {
         int g = (int) (startColor.getGreen() + (endColor.getGreen() - startColor.getGreen()) * ratio);
         int b = (int) (startColor.getBlue() + (endColor.getBlue() - startColor.getBlue()) * ratio);
         
-        return Style.EMPTY.withColor(TextColor.fromRgb(new Color(r, g, b).getRGB())).withItalic(false);
+        return Style.EMPTY.withColor(TextColor.fromRgb(new Color(r, g, b).getRGB()));
     }
     
     /**
