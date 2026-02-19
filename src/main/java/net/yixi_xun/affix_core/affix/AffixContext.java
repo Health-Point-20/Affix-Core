@@ -1,6 +1,7 @@
 package net.yixi_xun.affix_core.affix;
 
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -18,7 +19,7 @@ public class AffixContext {
     private final Level world;
     private final LivingEntity owner;
     private final ItemStack itemStack;
-    private final int affixIndex;
+    private final Affix affix;
     private final Set<String> trigger;
     private final Event event;
     private final Map<String, Object> variables = new HashMap<>();
@@ -27,7 +28,7 @@ public class AffixContext {
         this.world = world;
         this.owner = owner;
         this.itemStack = itemStack;
-        this.affixIndex = affix.index();
+        this.affix = affix;
         this.trigger = Set.of(trigger.split(","));
         this.event = event;
 
@@ -86,12 +87,12 @@ public class AffixContext {
     }
 
     public boolean inCooldown() {
-        return !AffixManager.isCooldownOver(itemStack, affixIndex, world);
+        return !AffixManager.isCooldownOver(itemStack, affix, world);
     }
 
     public void setCooldown(Long cooldownTicks) {
         if (cooldownTicks > 0) {
-            AffixManager.setCooldown(itemStack, affixIndex, cooldownTicks, world);
+            AffixManager.setCooldown(itemStack, affix, cooldownTicks, world);
         }
     }
 
@@ -99,19 +100,39 @@ public class AffixContext {
     public Level getWorld() { return world; }
     public LivingEntity getOwner() { return owner; }
     public ItemStack getItemStack() { return itemStack; }
-    public int getAffixIndex() { return affixIndex; }
+    public Affix getAffix() { return affix; }
     public Set<String> getTrigger() { return trigger; }
     public Event getEvent() { return event; }
 
     public LivingEntity getTarget() {
-        if (trigger.contains("on_attack") && event instanceof LivingHurtEvent attackEvent)
-            return attackEvent.getEntity();
-        else if (trigger.contains("on_hurt") && event instanceof LivingHurtEvent hurtEvent)
-            return hurtEvent.getSource().getEntity() instanceof LivingEntity target ? target : null;
-        else if (trigger.contains("on_death") && event instanceof LivingDeathEvent deathEvent)
-            return deathEvent.getSource().getEntity() instanceof LivingEntity killer ? killer : null;
-        else if (trigger.contains("on_kill") && event instanceof LivingDeathEvent deathEvent)
-            return deathEvent.getEntity();
+        // 事件类型检查
+        if (event instanceof LivingHurtEvent hurtEvent) {
+            if (trigger.contains("on_attack")) {
+                LivingEntity target = hurtEvent.getEntity();
+                return target != null && target.isAlive() ? target : owner;
+            } else if (trigger.contains("on_hurt")) {
+                Entity source = hurtEvent.getSource().getEntity();
+                return source instanceof LivingEntity livingSource && livingSource.isAlive() ? livingSource : null;
+            }
+        } else if (event instanceof LivingDeathEvent deathEvent) {
+            if (trigger.contains("on_kill")) {
+                LivingEntity killed = deathEvent.getEntity();
+                return killed != null ? killed : owner;
+            } else if (trigger.contains("on_death")) {
+                Entity killer = deathEvent.getSource().getEntity();
+                return killer instanceof LivingEntity livingKiller && livingKiller.isAlive() ? livingKiller : null;
+            }
+        }
+
+        // 自定义target变量处理
+        Object targetVar = variables.get("target");
+        if (targetVar instanceof Map<?,?> targetMap) {
+            Object entityRef = targetMap.get("entity_ref");
+            if (entityRef instanceof LivingEntity livingEntity && livingEntity.isAlive()) {
+                return livingEntity;
+            }
+        }
+
         return owner;
     }
 }

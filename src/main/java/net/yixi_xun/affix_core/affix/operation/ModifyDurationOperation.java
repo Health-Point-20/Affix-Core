@@ -1,34 +1,75 @@
 package net.yixi_xun.affix_core.affix.operation;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.item.ItemStack;
 import net.yixi_xun.affix_core.affix.AffixContext;
 
-import static net.yixi_xun.affix_core.api.ExpressionHelper.evaluate;
-
-public class ModifyDurationOperation implements IOperation {
+/**
+ * 修改耐久度操作，用于修改物品的当前耐久度或最大耐久度
+ */
+public class ModifyDurationOperation extends BaseOperation {
 
     private final String amountExpression;
-    private final String operation;
+    private final OperationType operation;
+
+    public enum OperationType {
+        DURATION("duration"),
+        MAX_DURATION("max_duration");
+        
+        private final String name;
+        OperationType(String name) { this.name = name; }
+        public String getName() { return name; }
+        
+        public static OperationType fromString(String name) {
+            if (name == null || name.isEmpty()) return DURATION;
+            for (OperationType type : values()) {
+                if (type.name.equalsIgnoreCase(name)) return type;
+            }
+            return DURATION;
+        }
+    }
 
     public ModifyDurationOperation(String amountExpression, String operation) {
-        this.amountExpression = amountExpression;
-        this.operation = operation;
+        this.amountExpression = amountExpression != null ? amountExpression : "duration";
+        this.operation = OperationType.fromString(operation);
     }
 
     @Override
     public void apply(AffixContext context) {
-        var itemStack = context.getItemStack();
-        context.addVariable("duration", itemStack.getMaxDamage() - itemStack.getDamageValue());
-        if (itemStack.getOrCreateTag().contains("Affix_Durability")) {
-            context.addVariable("max_duration", itemStack.getOrCreateTag().getInt("Affix_Durability"));
-       } else {
-           context.addVariable("max_duration", itemStack.getMaxDamage());
-       }
-
-        switch (operation) {
-            case "duration" -> itemStack.setDamageValue(itemStack.getMaxDamage() - (int) evaluate(amountExpression, context.getVariables()));
-            case "max_duration" -> itemStack.getOrCreateTag().putInt("Affix_Durability", (int) evaluate(amountExpression, context.getVariables()));
+        if (context == null) {
+            return;
         }
+        
+        ItemStack itemStack = context.getItemStack();
+        if (itemStack == null || itemStack.isEmpty()) {
+            return;
+        }
+
+        // 移除 try-catch 块，因为 ExpressionHelper 已经处理了表达式异常
+        setupDurationVariables(context, itemStack);
+        
+        switch (operation) {
+            case DURATION -> {
+                int newDamage = itemStack.getMaxDamage() - (int) evaluateOrDefaultValue(amountExpression, context.getVariables(), 0.0);
+                itemStack.setDamageValue(Math.max(0, Math.min(newDamage, itemStack.getMaxDamage())));
+            }
+            case MAX_DURATION -> {
+                int newMaxDurability = (int) evaluateOrDefaultValue(amountExpression, context.getVariables(), itemStack.getMaxDamage());
+                itemStack.getOrCreateTag().putInt("Affix_Durability", Math.max(1, newMaxDurability));
+            }
+        }
+    }
+
+    /**
+     * 设置耐久度相关变量
+     */
+    private void setupDurationVariables(AffixContext context, ItemStack itemStack) {
+        int currentDurability = itemStack.getMaxDamage() - itemStack.getDamageValue();
+        context.addVariable("duration", currentDurability);
+        
+        int maxDurability = itemStack.getOrCreateTag().contains("Affix_Durability") ? 
+            itemStack.getOrCreateTag().getInt("Affix_Durability") : itemStack.getMaxDamage();
+        context.addVariable("max_duration", maxDurability);
     }
 
     @Override
@@ -46,7 +87,7 @@ public class ModifyDurationOperation implements IOperation {
         CompoundTag nbt = new CompoundTag();
         nbt.putString("Type", getType());
         nbt.putString("AmountExpression", amountExpression);
-        nbt.putString("Operation", operation);
+        nbt.putString("Operation", operation.getName());
         return nbt;
     }
 

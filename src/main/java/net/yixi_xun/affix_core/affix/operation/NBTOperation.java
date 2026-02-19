@@ -3,49 +3,104 @@ package net.yixi_xun.affix_core.affix.operation;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.entity.LivingEntity;
+import net.yixi_xun.affix_core.AffixCoreMod;
 import net.yixi_xun.affix_core.affix.AffixContext;
 
 import static net.yixi_xun.affix_core.api.ExpressionHelper.evaluate;
 
-public class NBTOperation implements IOperation {
-    private final String nbtPath;  // NBT路径，例如 "Affixes.custom_value"
-    private final String valueExpression;  // NBT值表达式
-    private final String valueType;  // NBT值类型：number, string, boolean等
-    private final String operationMode; // 操作模式：add(添加)/modify(修改)/delete(删除)
-    private final String target; // 写入目标：item(物品)/owner(持有者)/attacker(攻击者)/victim(受害者)
+/**
+ * NBT操作，用于修改实体或物品的NBT数据
+ */
+public class NBTOperation extends BaseOperation {
+    private final String nbtPath;
+    private final String valueExpression;
+    private final ValueType valueType;
+    private final OperationMode operationMode;
+    private final TargetType target;
 
-    public NBTOperation(String nbtPath, String valueExpression, String valueType, String operationMode, String target) {
-        this.nbtPath = nbtPath != null ? nbtPath : "";
+    public enum ValueType {
+        NUMBER("number"), STRING("string"), BOOLEAN("boolean");
+        
+        private final String name;
+        ValueType(String name) { this.name = name; }
+        public String getName() { return name; }
+        
+        public static ValueType fromString(String name) {
+            if (name == null || name.isEmpty()) return NUMBER;
+            for (ValueType type : values()) {
+                if (type.name.equalsIgnoreCase(name)) return type;
+            }
+            return NUMBER;
+        }
+    }
+
+    public enum OperationMode {
+        ADD("add"), MODIFY("modify"), DELETE("delete");
+        
+        private final String name;
+        OperationMode(String name) { this.name = name; }
+        public String getName() { return name; }
+        
+        public static OperationMode fromString(String name) {
+            if (name == null || name.isEmpty()) return ADD;
+            for (OperationMode mode : values()) {
+                if (mode.name.equalsIgnoreCase(name)) return mode;
+            }
+            return ADD;
+        }
+    }
+
+    public enum TargetType {
+        ITEM("item"), SELF("self"), TARGET("target");
+        
+        private final String name;
+        TargetType(String name) { this.name = name; }
+        public String getName() { return name; }
+        
+        public static TargetType fromString(String name) {
+            if (name == null || name.isEmpty()) return ITEM;
+            for (TargetType type : values()) {
+                if (type.name.equalsIgnoreCase(name)) return type;
+            }
+            return ITEM;
+        }
+    }
+
+    public NBTOperation(String nbtPath, String valueExpression, String valueType, 
+                       String operationMode, String target) {
+        this.nbtPath = nbtPath != null ? nbtPath.trim() : "";
         this.valueExpression = valueExpression != null ? valueExpression : "0";
-        this.valueType = valueType != null ? valueType : "number";
-        this.operationMode = operationMode != null ? operationMode : "add";
-        this.target = target != null ? target : "item"; // 默认写入物品
+        this.valueType = ValueType.fromString(valueType);
+        this.operationMode = OperationMode.fromString(operationMode);
+        this.target = TargetType.fromString(target);
     }
 
     @Override
     public void apply(AffixContext context) {
-        // 检查NBT路径是否为空
-        if (nbtPath.trim().isEmpty()) {
-            return; // 如果NBT路径为空，则不执行任何操作
-        }
-        
-        // 根据target获取相应的NBT容器
-        CompoundTag targetNBT = getTargetNBT(context);
-        if (targetNBT == null) {
+        if (context == null || nbtPath.isEmpty()) {
             return;
         }
+        
+        try {
+            CompoundTag targetNBT = getTargetNBT(context);
+            if (targetNBT == null) {
+                AffixCoreMod.LOGGER.debug("无法获取目标NBT容器: {}", target.getName());
+                return;
+            }
 
-        switch (operationMode) {
-            case "add", "modify" -> modifyNBTValue(context, targetNBT);
-            case "delete" -> deleteNBTValue(targetNBT);
-            default -> modifyNBTValue(context, targetNBT); // 默认为添加/修改
+            switch (operationMode) {
+                case ADD, MODIFY -> modifyNBTValue(context, targetNBT);
+                case DELETE -> deleteNBTValue(targetNBT);
+            }
+        } catch (Exception e) {
+            AffixCoreMod.LOGGER.error("执行NBT操作时发生错误: {}", nbtPath, e);
         }
     }
 
     private void modifyNBTValue(AffixContext context, CompoundTag targetNBT) {
         // 计算NBT值
         Object computedValue;
-        if ("number".equalsIgnoreCase(valueType)) {
+        if ("number".equalsIgnoreCase(valueType.getName())) {
             double result = evaluate(valueExpression, context.getVariables());
             // 判断是整数还是浮点数
             if (result == (long) result) {
@@ -53,10 +108,10 @@ public class NBTOperation implements IOperation {
             } else {
                 computedValue = result;
             }
-        } else if ("string".equalsIgnoreCase(valueType)) {
+        } else if ("string".equalsIgnoreCase(valueType.getName())) {
             // 将表达式结果转换为字符串
             computedValue = evaluate(valueExpression, context.getVariables());
-        } else if ("boolean".equalsIgnoreCase(valueType)) {
+        } else if ("boolean".equalsIgnoreCase(valueType.getName())) {
             double result = evaluate(valueExpression, context.getVariables());
             computedValue = Math.abs(result) > 1e-10; // 非零视为真
         } else {
@@ -66,7 +121,7 @@ public class NBTOperation implements IOperation {
 
         // 修改NBT，根据操作模式决定是否添加Affixes前缀
         String fullPath = nbtPath;
-        if ("add".equalsIgnoreCase(operationMode) && !fullPath.startsWith("Affixes")) {
+        if ("add".equalsIgnoreCase(operationMode.getName()) && !fullPath.startsWith("Affixes")) {
             // 只有在添加模式下才确保NBT路径在Affixes下
             if (fullPath.startsWith(".")) {
                 fullPath = "Affixes" + fullPath;
@@ -171,7 +226,7 @@ public class NBTOperation implements IOperation {
      * 根据target参数获取相应的NBT容器
      */
     private CompoundTag getTargetNBT(AffixContext context) {
-        return switch (target.toLowerCase()) {
+        return switch (target.getName().toLowerCase()) {
             case "item" -> {
                 var itemStack = context.getItemStack();
                 if (itemStack == null || itemStack.isEmpty()) {
@@ -202,9 +257,9 @@ public class NBTOperation implements IOperation {
         nbt.putString("Type", getType());
         nbt.putString("NBTPath", nbtPath);
         nbt.putString("ValueExpression", valueExpression);
-        nbt.putString("ValueType", valueType);
-        nbt.putString("OperationMode", operationMode);
-        nbt.putString("Target", target);
+        nbt.putString("ValueType", valueType.getName());
+        nbt.putString("OperationMode", operationMode.getName());
+        nbt.putString("Target", target.getName());
         return nbt;
     }
 
@@ -217,11 +272,11 @@ public class NBTOperation implements IOperation {
      * 工厂方法，从NBT创建NBTOperation
      */
     public static NBTOperation fromNBT(CompoundTag nbt) {
-        String nbtPath = nbt.contains("NBTPath") ? nbt.getString("NBTPath") : "";
-        String valueExpression = nbt.contains("ValueExpression") ? nbt.getString("ValueExpression") : "0";
-        String valueType = nbt.contains("ValueType") ? nbt.getString("ValueType") : "number";
-        String operationMode = nbt.contains("OperationMode") ? nbt.getString("OperationMode") : "add";
-        String target = nbt.contains("Target") ? nbt.getString("Target") : "item";
+        String nbtPath = getString(nbt, "NBTPath", "");
+        String valueExpression = getString(nbt, "ValueExpression", "0");
+        String valueType = getString(nbt, "ValueType", "number");
+        String operationMode = getString(nbt, "OperationMode", "add");
+        String target = getString(nbt, "Target", "item");
 
         return new NBTOperation(nbtPath, valueExpression, valueType, operationMode, target);
     }

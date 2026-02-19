@@ -17,18 +17,18 @@ import java.util.concurrent.ConcurrentHashMap;
 @Mod.EventBusSubscriber
 public class HurtManager {
 
-    // 存储额外伤害信息的Map，键是目标实体，值是额外伤害数据
+    // 存储额外伤害信息的Map
     private static final Map<LivingEntity, List<ExtraHurtData>> extraHurtQueue = new ConcurrentHashMap<>();
 
     private static boolean onDealExtraDamage = false;
 
-    public record ExtraHurtData(DamageSource source, float damage) { }
+    public record ExtraHurtData(DamageSource source, float damage) {}
     
     /**
-     * 添加额外伤害到队列中，等待在onHurt事件中处理
+     * 添加额外伤害到队列中
      */
     public static void extraHurt(LivingEntity target, DamageSource source, float damage) {
-       if (!onDealExtraDamage) {
+       if (!onDealExtraDamage && target.isAlive() && !target.level().isClientSide()) {
             extraHurtQueue.computeIfAbsent(target, k -> new ArrayList<>()).add(new ExtraHurtData(source, damage));
         }
     }

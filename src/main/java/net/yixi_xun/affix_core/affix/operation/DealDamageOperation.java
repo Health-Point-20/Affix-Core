@@ -9,7 +9,7 @@ import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
-import net.yixi_xun.affix_core.AFConfig;
+import net.yixi_xun.affix_core.ACConfig;
 import net.yixi_xun.affix_core.affix.AffixContext;
 
 import java.util.Comparator;
@@ -21,62 +21,85 @@ import static net.yixi_xun.affix_core.api.HurtManager.extraHurt;
 /**
  * 伤害操作，对目标造成伤害
  */
-public class DealDamageOperation implements IOperation {
+public class DealDamageOperation extends BaseOperation {
 
-    private final String amountExpression;       // 伤害值表达式
-    private final String damageTypeId;           // 伤害类型
-    private final String isExtraDamage;          // 是否为额外伤害(不递归，不影响受击无敌时间)
-    private final String target;                 // 目标实体
-    private final String sourceEntity;           // 伤害源实体
-    private final String isAreaDamage;           // 是否为范围伤害
-    private final String maxEntitiesExpression;  // 范围伤害最大实体数表达式
-    private final String rangeExpression;        // 范围伤害半径表达式
+    private final String amountExpression;
+    private final String damageTypeId;
+    private final boolean isExtraDamage;
+    private final String target;
+    private final String sourceEntity;
+    private final boolean isAreaDamage;
+    private final String maxEntitiesExpression;
+    private final String rangeExpression;
 
-    public DealDamageOperation(String amountExpression, String damageTypeId, String isExtraDamage, String targetString, String sourceEntity, String isAreaDamage, String maxEntitiesExpression, String rangeExpression) {
-        this.amountExpression = amountExpression;
-        this.damageTypeId = damageTypeId;
-        this.isExtraDamage = isExtraDamage;
-        this.sourceEntity = sourceEntity;
-        this.isAreaDamage = isAreaDamage;
-        this.target = targetString;
-        this.maxEntitiesExpression = maxEntitiesExpression;
-        this.rangeExpression = rangeExpression;
+    public DealDamageOperation(String amountExpression, String damageTypeId, String isExtraDamage, 
+                              String targetString, String sourceEntity, String isAreaDamage, 
+                              String maxEntitiesExpression, String rangeExpression) {
+        this.amountExpression = amountExpression != null ? amountExpression : "1";
+        this.damageTypeId = damageTypeId != null ? damageTypeId : "minecraft:magic";
+        this.isExtraDamage = Boolean.parseBoolean(isExtraDamage);
+        this.sourceEntity = sourceEntity != null ? sourceEntity : "";
+        this.isAreaDamage = Boolean.parseBoolean(isAreaDamage);
+        this.target = targetString != null ? targetString : "target";
+        this.maxEntitiesExpression = maxEntitiesExpression != null ? maxEntitiesExpression : "0";
+        this.rangeExpression = rangeExpression != null ? rangeExpression : "0";
     }
 
     @Override
     public void apply(AffixContext context) {
-        LivingEntity target = this.target.equals("self") ? context.getOwner() : context.getTarget();
-        LivingEntity attacker = sourceEntity.equals("self") ? context.getOwner() : context.getTarget();
-        if (target == null) {
+        if (context == null) {
+            return;
+        }
+        
+        LivingEntity target = getTargetEntity(context, this.target);
+        LivingEntity attacker;
+        if (sourceEntity.isEmpty() || sourceEntity.equals("null")) {
+            attacker = null;    //无来源伤害
+        } else {
+            attacker = getTargetEntity(context, sourceEntity);
+        }
+        
+        if (isInValidEntity(target)) {
             return;
         }
 
-        // 创建伤害源 - 支持任意注册的伤害类型
         ResourceKey<DamageType> type = getDamageTypeKey(damageTypeId);
-
-        DamageSource source;
-        if (context.getEvent() instanceof LivingHurtEvent event && damageTypeId.equals("damage_type")) {
-            source = event.getSource();
-        } else {
-            source = new DamageSource(target.level().registryAccess()
-                    .registryOrThrow(Registries.DAMAGE_TYPE)
-                    .getHolderOrThrow(type),
-                    attacker);
-        }
-
-        float finalAmount = (float) evaluate(amountExpression, context.getVariables());
+        DamageSource source = createDamageSource(context, target, attacker, type);
+        float finalAmount = (float) evaluateOrDefaultValue(amountExpression, context.getVariables(), 1.0);
 
         // 应用主目标伤害
-        if (isExtraDamage.equals("true")) {
+        if (isExtraDamage) {
             extraHurt(target, source, finalAmount);
         } else {
             target.hurt(source, finalAmount);
         }
 
         // 处理范围伤害
-        if (isAreaDamage.equals("true") && maxEntitiesExpression != null && !maxEntitiesExpression.isEmpty() &&
-            rangeExpression != null && !rangeExpression.isEmpty()) {
+        if (isAreaDamage && isValidAreaDamageParams()) {
             applyAreaDamage(context, target, source, finalAmount);
+        }
+    }
+
+    /**
+     * 验证范围伤害参数是否有效
+     */
+    private boolean isValidAreaDamageParams() {
+        return maxEntitiesExpression != null && !maxEntitiesExpression.isEmpty() &&
+               rangeExpression != null && !rangeExpression.isEmpty();
+    }
+
+    /**
+     * 创建伤害源
+     */
+    private DamageSource createDamageSource(AffixContext context, LivingEntity target, 
+                                          LivingEntity attacker, ResourceKey<DamageType> type) {
+        if (context.getEvent() instanceof LivingHurtEvent event && "damage_type".equals(damageTypeId)) {
+            return event.getSource();
+        } else {
+            return new DamageSource(target.level().registryAccess()
+                    .registryOrThrow(Registries.DAMAGE_TYPE)
+                    .getHolderOrThrow(type),
+                    attacker);
         }
     }
 
@@ -93,9 +116,9 @@ public class DealDamageOperation implements IOperation {
         nbt.putString("SourceEntity", sourceEntity);
         nbt.putString("AmountExpression", amountExpression);
         nbt.putString("DamageTypeId", damageTypeId);
-        nbt.putString("IsExtraDamage", isExtraDamage);
+        nbt.putString("IsExtraDamage", String.valueOf(isExtraDamage));
         // 范围伤害字段
-        nbt.putString("IsAreaDamage", isAreaDamage);
+        nbt.putString("IsAreaDamage", String.valueOf(isAreaDamage));
         if (maxEntitiesExpression != null) {
             nbt.putString("MaxEntitiesExpression", maxEntitiesExpression);
         }
@@ -116,16 +139,16 @@ public class DealDamageOperation implements IOperation {
      * 工厂方法，从NBT创建DamageOperation
      */
     public static DealDamageOperation fromNBT(CompoundTag nbt) {
-        String amountExpression = nbt.contains("AmountExpression") ? nbt.getString("AmountExpression") : "1";
-        String damageTypeId = nbt.contains("DamageTypeId") ? nbt.getString("DamageTypeId") : "minecraft:magic";
-        String target = nbt.contains("Target") ? nbt.getString("Target") : "target";
-        String isExtraDamage = nbt.contains("IsExtraDamage") ? nbt.getString("IsExtraDamage") : "true";
-        String sourceEntity = nbt.contains("SourceEntity") ? nbt.getString("SourceEntity") : "self";
+        String amountExpression = getString(nbt, "AmountExpression", "1");
+        String damageTypeId = getString(nbt, "DamageTypeId", "minecraft:magic");
+        String target = getString(nbt, "Target", "target");
+        String isExtraDamage = getString(nbt, "IsExtraDamage", "true");
+        String sourceEntity = getString(nbt, "SourceEntity", "");
         
-        // 范围伤害字段（可选）
-        String isAreaDamage = nbt.contains("IsAreaDamage") ? nbt.getString("IsAreaDamage") : "false";
-        String maxEntitiesExpression = nbt.contains("MaxEntitiesExpression") ? nbt.getString("MaxEntitiesExpression") : "0";
-        String rangeExpression = nbt.contains("RangeExpression") ? nbt.getString("RangeExpression") : "0";
+        // 范围伤害字段
+        String isAreaDamage = getString(nbt, "IsAreaDamage", "false");
+        String maxEntitiesExpression = getString(nbt, "MaxEntitiesExpression", "0");
+        String rangeExpression = getString(nbt, "RangeExpression", "0");
 
         return new DealDamageOperation(amountExpression, damageTypeId, isExtraDamage, target, sourceEntity, isAreaDamage, maxEntitiesExpression, rangeExpression);
     }
@@ -142,14 +165,14 @@ private void applyAreaDamage(AffixContext context, LivingEntity centerEntity, Da
     int maxEntities = (int) evaluate(maxEntitiesExpression, context.getVariables());
     double range = evaluate(rangeExpression, context.getVariables());
     
-    // 为0视为无限制，使用配置中的最大值
+    // 为0则使用配置中的最大值
     if (maxEntities < 0 || range < 0) {
         return; // 无效的范围参数
     }
     
     // 应用配置限制：当范围为0时，使用配置的最大范围
-    double effectiveRange = range > 0 ? range : AFConfig.MAX_AREA_DAMAGE_RANGE.get();
-    int effectiveMaxEntities = maxEntities > 0 ? maxEntities : AFConfig.MAX_AREA_DAMAGE_ENTITIES.get();
+    double effectiveRange = range > 0 ? range : ACConfig.MAX_AREA_DAMAGE_RANGE.get();
+    int effectiveMaxEntities = maxEntities > 0 ? maxEntities : ACConfig.MAX_AREA_DAMAGE_ENTITIES.get();
     
     // 获取范围内的实体并按距离排序
     List<LivingEntity> nearbyEntities = centerEntity.level().getEntitiesOfClass(

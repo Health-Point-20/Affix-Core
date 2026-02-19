@@ -2,29 +2,42 @@ package net.yixi_xun.affix_core.affix.operation;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraftforge.eventbus.api.Event;
+import net.yixi_xun.affix_core.AffixCoreMod;
 import net.yixi_xun.affix_core.affix.AffixContext;
 
-import static net.yixi_xun.affix_core.api.ExpressionHelper.evaluate;
-
 /**
- * 伤害操作，修改造成的伤害
+ * 事件取消操作，用于取消或拒绝事件
  */
-public class CancelEventOperation implements IOperation {
+public class CancelEventOperation extends BaseOperation {
 
-    private final String cancel;
+    private final String cancelCondition;
 
-    public CancelEventOperation(String cancel) {
-        this.cancel = cancel;
+    public CancelEventOperation(String cancelCondition) {
+        this.cancelCondition = cancelCondition != null ? cancelCondition : "false";
     }
 
     @Override
     public void apply(AffixContext context) {
-        double result = evaluate(cancel, context.getVariables());
-        Event event = context.getEvent();
-        if (event.isCancelable()) {
-            event.setCanceled(result > 1e-10);
-        } else if (event.hasResult()) {
-            event.setResult(result > 1e-10 ? Event.Result.DENY : Event.Result.DEFAULT);
+        if (context == null) {
+            return;
+        }
+        
+        try {
+            Event event = context.getEvent();
+            if (event == null) {
+                return;
+            }
+            
+            double result = evaluateOrDefaultValue(cancelCondition, context.getVariables(), 0.0);
+            boolean shouldCancel = result > 1e-10;
+            
+            if (event.isCancelable()) {
+                event.setCanceled(shouldCancel);
+            } else if (event.hasResult()) {
+                event.setResult(shouldCancel ? Event.Result.DENY : Event.Result.DEFAULT);
+            }
+        } catch (Exception e) {
+            AffixCoreMod.LOGGER.error("处理事件取消时发生错误", e);
         }
     }
 
@@ -37,7 +50,7 @@ public class CancelEventOperation implements IOperation {
     public CompoundTag toNBT() {
         CompoundTag nbt = new CompoundTag();
         nbt.putString("Type", getType());
-        nbt.putString("Cancel", cancel);
+        nbt.putString("Cancel", cancelCondition);
         return nbt;
     }
 

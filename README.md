@@ -18,7 +18,7 @@ Affix_Core 是一个功能强大的Minecraft Forge模组，提供了一套完整
 - 触发自定义消息事件和对应操作
 - DealDamage操作新增范围攻击功能
 - Potion操作新增效果叠加功能
-- 新增属性闪避率和命中率以及最终命中/闪避率
+- 新增属性闪避率/命中率以及最终命中率/最终闪避率
 
 **🎨 界面增强**
 - 新增Tooltip处理类，提供三大核心功能：
@@ -38,12 +38,12 @@ Affix_Core 是一个功能强大的Minecraft Forge模组，提供了一套完整
 - **DealDamageOperation**: 造成伤害
 - **PotionOperation**: 添加药水效果
 - **AttributeOperation**: 属性修改
-- **HealthOperation**: 生命值操作
+- **HealthOperation**: 修改生命值
 - **CommandOperation**: 执行命令
 - **NBTOperation**: NBT数据操作
 - **ModifyDamageOperation**: 修改伤害
-- **ModifyEffectOperation**: 修改效果
-- **ModifyDurationOperation**: 修改持续时间
+- **ModifyEffectOperation**: 修改获得的药水效果
+- **ModifyDurationOperation**: 修改物品耐久度/最大耐久度
 - **CancelEventOperation**: 取消事件
 
 ### 🔢 表达式计算引擎
@@ -63,13 +63,12 @@ Affix_Core 是一个功能强大的Minecraft Forge模组，提供了一套完整
 **实体相关变量**:
 - `self`: 触发实体数据（可访问 `self.health`、`self.max_health` 等）
 - `target`: 目标实体数据（可访问 `target.x`、`target.name` 等）
-- `attacker`: 攻击者实体数据
-- `killer`: 击杀者实体数据
+- `attacker`: 攻击者实体数据（on_hurt/on_attack触发器时存在）
+- `killer`: 击杀者实体数据（on_killed/on_death触发器时存在）
 - `owner`: 持有者引用
 
 **其他复合变量**:
 - `item`: 物品数据（可访问 `item.count`、`item.max_damage` 等）
-
 
 #### 终端变量（Terminal Variables）
 终端变量是不能再继续点号访问的基本属性变量：
@@ -96,15 +95,11 @@ Affix_Core 是一个功能强大的Minecraft Forge模组，提供了一套完整
 - `damage_type`: 伤害类型
 - `slot`: 装备槽位
 
-**布尔型终端变量**（以数字形式表示）:
-- `is_sprinting`: 是否疾跑 (1/0)
-- `is_sneaking`: 是否潜行 (1/0)
-- `on_ground`: 是否在地面 (1/0)
-- `is_swimming`: 是否游泳 (1/0)
-
-**动态中间变量**:
-- 通过 `context.addVariable("name", value)` 方法在运行时添加的变量
-- 可以是任何数据类型，支持复杂的嵌套结构
+**布尔型终端变量**:
+- `is_sprinting`: 是否疾跑 
+- `is_sneaking`: 是否潜行 
+- `on_ground`: 是否在地面 
+- `is_swimming`: 是否游泳 
 
 ### 🎨 Tooltip处理系统
 
@@ -169,31 +164,6 @@ Affix_Core 是一个功能强大的Minecraft Forge模组，提供了一套完整
 ### 范围伤害配置
 - `MAX_AREA_DAMAGE_RANGE`: 最大范围伤害半径
 - `MAX_AREA_DAMAGE_ENTITIES`: 范围伤害最大实体数量
-
-### Curios API 集成
-
-**支持的Curios槽位**:
-- `necklace` - 项链
-- `back` - 背部
-- `belt` - 腰带
-- `hands` - 手部
-- `ring` - 戒指
-- `charm` - 饰品
-- `bracelet` - 手镯
-- `head_curios` - 头部饰品
-- `body` - 身体
-- `feet_curios` - 足部饰品
-- `quiver` - 箭袋
-- `curio` - 通用饰品
-
-**词缀槽位限制**:
-可在词缀NBT中使用 `Slot` 字段指定限制槽位：
-```json
-{
-  "Slot": "necklace",
-  "Trigger": "on_equip"
-}
-```
 
 ## 许可证
 

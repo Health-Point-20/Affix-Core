@@ -13,6 +13,8 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.util.thread.SidedThreadGroups;
 import net.yixi_xun.affix_core.affix.AffixManager;
+import net.yixi_xun.affix_core.items.AffixCoreModItems;
+import net.yixi_xun.affix_core.tap.AffixCoreModTap;
 import org.slf4j.Logger;
 
 import java.util.AbstractMap;
@@ -21,7 +23,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-// The value here should match an entry in the META-INF/mods.toml file
 @Mod(AffixCoreMod.MODID)
 public class AffixCoreMod {
 
@@ -34,8 +35,10 @@ public class AffixCoreMod {
 
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
         ModLoadingContext modLoadingContext = ModLoadingContext.get();
+        AffixCoreModItems.REGISTRY.register(modEventBus);
+        AffixCoreModTap.REGISTRY.register(modEventBus);
         AffixManager.init();
-        modLoadingContext.registerConfig(ModConfig.Type.COMMON, AFConfig.SPEC);
+        modLoadingContext.registerConfig(ModConfig.Type.COMMON, ACConfig.SPEC);
 
     }
 

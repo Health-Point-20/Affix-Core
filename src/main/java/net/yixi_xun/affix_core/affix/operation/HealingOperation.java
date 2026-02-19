@@ -2,16 +2,17 @@ package net.yixi_xun.affix_core.affix.operation;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraftforge.event.entity.living.LivingHealEvent;
 import net.yixi_xun.affix_core.affix.AffixContext;
 
 /**
- * 生命值操作，包括设置生命值、设置伤害吸收值等
+ * 治疗操作，用于修改治疗量或直接治疗实体
  */
-public class HealthOperation extends BaseOperation {
+public class HealingOperation extends BaseOperation {
 
     public enum Mode {
-        HEALTH("health"),      // 设置生命值
-        ABSORPTION("absorption"); // 设置伤害吸收值
+        MODIFY("modify"),         // 修改治疗量（只在实体被治疗时生效）
+        HEAL("heal");             // 直接治疗实体
 
         private final String name;
 
@@ -25,7 +26,7 @@ public class HealthOperation extends BaseOperation {
 
         public static Mode fromString(String name) {
             if (name == null || name.isEmpty()) {
-                return HEALTH;
+                return MODIFY;
             }
             
             for (Mode mode : values()) {
@@ -33,7 +34,7 @@ public class HealthOperation extends BaseOperation {
                     return mode;
                 }
             }
-            return HEALTH;
+            return MODIFY;
         }
     }
 
@@ -42,9 +43,9 @@ public class HealthOperation extends BaseOperation {
     private final String amountExpression;
     private final String target;
 
-    public HealthOperation(Mode mode, MathOperation operation, String amountExpression, String target) {
-        this.mode = mode != null ? mode : Mode.HEALTH;
-        this.operation = operation != null ? operation : MathOperation.SET;
+    public HealingOperation(Mode mode, MathOperation operation, String amountExpression, String target) {
+        this.mode = mode != null ? mode : Mode.MODIFY;
+        this.operation = operation != null ? operation : MathOperation.ADD;
         this.amountExpression = amountExpression != null ? amountExpression : "0";
         this.target = target != null ? target : "self";
     }
@@ -63,41 +64,22 @@ public class HealthOperation extends BaseOperation {
         double computedAmount = evaluateOrDefaultValue(amountExpression, context.getVariables(), 0.0);
 
         switch (mode) {
-            case HEALTH -> handleSetHealth(targetEntity, computedAmount);
-            case ABSORPTION -> handleSetAbsorption(targetEntity, computedAmount);
+            case MODIFY:
+                if (context.getEvent() instanceof LivingHealEvent event) {
+                    float originalHealAmount = event.getAmount();
+                    float modifiedHealAmount = operation.apply(originalHealAmount, (float) computedAmount);
+                    event.setAmount(modifiedHealAmount);
+                }
+                break;
+            case HEAL:
+                targetEntity.heal((float) computedAmount);
+                break;
         }
-    }
-
-    /**
-     * 处理设置生命值
-     */
-    private void handleSetHealth(LivingEntity entity, double amount) {
-        float currentHealth = entity.getHealth();
-        float newHealth = HandleOperation((float) amount, currentHealth);
-        entity.setHealth(newHealth);
-    }
-
-    private float HandleOperation(float amount, float currentHealth) {
-        return switch (operation) {
-            case ADD -> currentHealth + amount;
-            case SUBTRACT -> Math.max(0.0f, currentHealth - amount);
-            case MULTIPLY -> operation.apply(currentHealth, amount);
-            case SET -> amount;
-        };
-    }
-
-    /**
-     * 处理设置伤害吸收值
-     */
-    private void handleSetAbsorption(LivingEntity entity, double amount) {
-        float currentAbsorption = entity.getAbsorptionAmount();
-        float newAbsorption = HandleOperation((float) amount, currentAbsorption);
-        entity.setAbsorptionAmount(newAbsorption);
     }
 
     @Override
     public void remove(AffixContext context) {
-        // HealthOperation是瞬时操作，不需要移除逻辑
+        // HealingOperation是瞬时操作，不需要移除逻辑
     }
 
     @Override
@@ -113,29 +95,29 @@ public class HealthOperation extends BaseOperation {
 
     @Override
     public String getType() {
-        return "health_operation";
+        return "healing_operation";
     }
 
     /**
-     * 工厂方法，从NBT创建HealthOperation
+     * 工厂方法，从NBT创建HealingOperation
      */
-    public static HealthOperation fromNBT(CompoundTag nbt) {
-        String modeStr = getString(nbt, "Mode", "health");
+    public static HealingOperation fromNBT(CompoundTag nbt) {
+        String modeStr = getString(nbt, "Mode", "modify");
         Mode mode = Mode.fromString(modeStr);
 
-        String operationStr = getString(nbt, "Operation", "set");
+        String operationStr = getString(nbt, "Operation", "add");
         MathOperation operation = MathOperation.fromString(operationStr);
 
         String amountExpression = getString(nbt, "AmountExpression", "0");
         String target = getString(nbt, "Target", "self");
 
-        return new HealthOperation(mode, operation, amountExpression, target);
+        return new HealingOperation(mode, operation, amountExpression, target);
     }
 
     /**
      * 注册操作工厂
      */
     public static void register() {
-        OperationManager.registerFactory("health_operation", HealthOperation::fromNBT);
+        OperationManager.registerFactory("healing_operation", HealingOperation::fromNBT);
     }
 }

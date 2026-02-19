@@ -10,6 +10,8 @@ import net.yixi_xun.affix_core.api.AffixEvent.AffixExecuteEvent;
 import net.yixi_xun.affix_core.api.AffixEvent.AffixRemoveEvent;
 import net.yixi_xun.affix_core.curios.CuriosSlotType;
 
+import java.util.UUID;
+
 import static net.yixi_xun.affix_core.AffixCoreMod.LOGGER;
 import static net.yixi_xun.affix_core.api.ExpressionHelper.evaluateCondition;
 
@@ -17,6 +19,7 @@ import static net.yixi_xun.affix_core.api.ExpressionHelper.evaluateCondition;
  * 表示一个词缀，包含触发器、条件、操作、冷却时间和槽位限制等信息
  */
 public class Affix {
+    private final UUID uuid;
     private final String trigger;
     private final String condition;
     private final IOperation operation;
@@ -25,12 +28,12 @@ public class Affix {
     private final EquipmentSlot slot;
     private final CuriosSlotType curiosSlot;
     private final long priority;
-    private final int index;
 
     /**
      * 从物品NBT中读取词缀信息
      */
-    public Affix(String trigger, String condition, IOperation operation, Long cooldown, int triggerCount, EquipmentSlot slot, CuriosSlotType curiosSlot, long priority, int index) {
+    public Affix(UUID uuid, String trigger, String condition, IOperation operation, Long cooldown, int triggerCount, EquipmentSlot slot, CuriosSlotType curiosSlot, long priority) {
+        this.uuid = uuid;
         this.trigger = trigger;
         this.condition = condition;
         this.operation = operation;
@@ -39,10 +42,10 @@ public class Affix {
         this.slot = slot;
         this.curiosSlot = curiosSlot;
         this.priority = priority;
-        this.index = index;
     }
 
-    public static Affix fromNBT(CompoundTag nbt, int index) {
+    public static Affix fromNBT(CompoundTag nbt) {
+        UUID uuid = nbt.contains("UUID") ? UUID.fromString(nbt.getString("UUID")) : UUID.randomUUID();
         // 读取触发器，默认为空
         String trigger = nbt.contains("Trigger") ? nbt.getString("Trigger") : "";
 
@@ -105,10 +108,11 @@ public class Affix {
         // 读取优先级
         long priority = nbt.contains("Priority") ? nbt.getLong("Priority") : 0L;
 
-        return new Affix(trigger, condition, operation, cooldown, triggerCount, slot, curiosSlot, priority, index);
+        return new Affix(uuid, trigger, condition, operation, cooldown, triggerCount, slot, curiosSlot, priority);
     }
 
     // Getter方法
+    public UUID uuid() { return uuid; }
     public String trigger() { return trigger; }
     public String condition() { return condition; }
     public IOperation operation() { return operation; }
@@ -116,7 +120,6 @@ public class Affix {
     public int triggerCount() { return triggerCount; }
     public EquipmentSlot slot() { return slot; }
     public CuriosSlotType curiosSlot() { return curiosSlot; }
-    public int index() { return index; }
     public long priority() { return priority; }
 
     /**
@@ -124,6 +127,8 @@ public class Affix {
      */
     public CompoundTag toNBT() {
         CompoundTag nbt = new CompoundTag();
+
+        nbt.putString("UUID", uuid.toString());
 
         if (trigger != null) {
             nbt.putString("Trigger", trigger);
@@ -159,7 +164,7 @@ public class Affix {
     }
 
     /**
-     * 检查词缀是否在非指定槽位触发（兼容旧版本）
+     * 检查词缀是否在非指定槽位触发
      */
     public boolean triggerInInvalidSlot(EquipmentSlot equipmentSlot) {
         return triggerInInvalidSlot(equipmentSlot, null);

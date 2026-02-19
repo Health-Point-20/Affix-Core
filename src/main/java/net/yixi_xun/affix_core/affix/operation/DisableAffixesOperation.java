@@ -8,27 +8,28 @@ import net.yixi_xun.affix_core.AffixCoreMod;
 import net.yixi_xun.affix_core.affix.AffixContext;
 import net.yixi_xun.affix_core.api.AffixEvent;
 
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Mod.EventBusSubscriber
-public class DisableAffixesOperation implements IOperation {
-    // 用于跟踪已应用的禁用操作，key为实体UUID+词缀索引，value为禁用的操作类型集合
-    private static final Map<String, Set<String>> APPLIED_DISABLES = new HashMap<>();
+public class DisableAffixesOperation extends BaseOperation {
+    // 使用线程安全的集合避免并发问题
+    private static final Map<String, Set<String>> APPLIED_DISABLES = new ConcurrentHashMap<>();
     
     private static final String DISABLE_AFFIXES_TAG = "DisableAffixes";
     private static final String ALL_OPERATIONS_KEY = "all";
     
-    private final Long priority;
+    private final long priority;
     private final String disableOperations;
-    private final String targetString;
+    private final String target;
 
-    public DisableAffixesOperation(Long priority, String disableOperations, String targetString) {
-        this.priority = priority;
-        this.disableOperations = disableOperations;
-        this.targetString = targetString;
+    public DisableAffixesOperation(Long priority, String disableOperations, String target) {
+        this.priority = priority != null ? priority : 0L;
+        this.disableOperations = disableOperations != null ? disableOperations : "all";
+        this.target = target != null ? target : "target";
     }
 
     @SubscribeEvent
@@ -79,36 +80,66 @@ public class DisableAffixesOperation implements IOperation {
 
     @Override
     public void apply(AffixContext context) {
-        LivingEntity target = targetString.equals("self") ? context.getOwner() : context.getTarget();
-        if (target == null) return;
+        if (context == null) {
+            return;
+        }
         
-        CompoundTag data = target.getPersistentData();
-        CompoundTag disabled = data.getCompound(DISABLE_AFFIXES_TAG);
+        LivingEntity target = getTargetEntity(context, this.target);
+        if (isInValidEntity(target)) {
+            return;
+        }
         
-        // 记录要禁用的操作类型
+        try {
+            CompoundTag data = target.getPersistentData();
+            CompoundTag disabled = data.getCompound(DISABLE_AFFIXES_TAG);
+            
+            String[] operations = processDisableOperations(disabled);
+            data.put(DISABLE_AFFIXES_TAG, disabled);
+            
+            String key = generateKey(context, target);
+            recordAppliedDisables(key, operations);
+        } catch (Exception e) {
+            AffixCoreMod.LOGGER.error("应用禁用词缀操作时发生错误", e);
+        }
+    }
+
+    /**
+     * 处理禁用操作配置
+     */
+    private String[] processDisableOperations(CompoundTag disabled) {
         String[] operations;
-        if (disableOperations.equals("all")) {
-            operations = new String[]{"all"};
+        if ("all".equals(disableOperations)) {
+            operations = new String[]{ALL_OPERATIONS_KEY};
             disabled.putLong(ALL_OPERATIONS_KEY, priority);
         } else {
             operations = disableOperations.split(",");
             for (String operation : operations) {
-                disabled.putLong(operation.trim(), priority);
+                String trimmedOp = operation.trim();
+                if (!trimmedOp.isEmpty()) {
+                    disabled.putLong(trimmedOp, priority);
+                }
             }
         }
-        data.put(DISABLE_AFFIXES_TAG, disabled);
-        
-        // 记录已应用的禁用操作，用于后续移除
-        String key = generateKey(context, target);
-        Set<String> disabledOps = APPLIED_DISABLES.computeIfAbsent(key, k -> new HashSet<>());
+        return operations;
+    }
+
+    /**
+     * 记录已应用的禁用操作
+     */
+    private void recordAppliedDisables(String key, String[] operations) {
+        Set<String> disabledOps = APPLIED_DISABLES.computeIfAbsent(key, 
+            k -> Collections.newSetFromMap(new ConcurrentHashMap<>()));
         for (String operation : operations) {
-            disabledOps.add(operation.trim());
+            String trimmedOp = operation.trim();
+            if (!trimmedOp.isEmpty()) {
+                disabledOps.add(trimmedOp);
+            }
         }
     }
 
     @Override
     public void remove(AffixContext context) {
-        LivingEntity target = targetString.equals("self") ? context.getOwner() : context.getTarget();
+        LivingEntity target = getTargetEntity(context, this.target);
         if (target == null) return;
         
         // 获取之前应用的禁用操作记录
@@ -150,7 +181,7 @@ public class DisableAffixesOperation implements IOperation {
     public CompoundTag toNBT() {
         CompoundTag nbt = new CompoundTag();
         nbt.putString("Type", getType());
-        nbt.putString("Target", targetString);
+        nbt.putString("Target", target);
         nbt.putLong("Priority", priority);
         nbt.putString("DisableOperations", disableOperations);
         return nbt;
@@ -165,7 +196,7 @@ public class DisableAffixesOperation implements IOperation {
      * 生成用于标识此操作应用的唯一键
      */
     private String generateKey(AffixContext context, LivingEntity target) {
-        return target.getStringUUID() + "_" + context.getAffixIndex();
+        return target.getStringUUID() + "_" + context.getAffix().uuid();
     }
 
     /**

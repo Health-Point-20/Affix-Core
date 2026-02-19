@@ -1,10 +1,54 @@
 {
   "commands.wait.success": "已延时执行命令",
   "commands.repeat.success": "已重复执行命令",
-  "affix_core.hit_miss": "你的攻击被 %s 闪避了",
   "attribute.affix_core.hit_rate": "命中率",
   "attribute.affix_core.evasion": "闪避率",
   "attribute.affix_core.final_hit_rate": "最终命中率",
   "attribute.affix_core.final_evasion": "最终闪避率",
-  "attribute.modifier.potency": "效力"
+  "affix_core.hit_miss": "你的攻击被 %s 闪避了",
+  "attribute.modifier.potency": "效力",
+  "item_group.affix_core": "词缀核心",
+  
+  "item.affix_core.raffle_item": "抽奖物品",
+  
+  "tooltip.raffle.item": "抽奖物品",
+  "tooltip.raffle.hold_shift": "按住Shift查看详细概率",
+  "tooltip.raffle.probabilities": "概率详情:",
+  "tooltip.raffle.container_mode": "容器模式:",
+  "tooltip.raffle.item_list_mode": "物品列表模式:",
+  "tooltip.raffle.container_not_available": "容器不可用",
+  "tooltip.raffle.usage": "使用说明:",
+  "tooltip.raffle.use_normal": "右键: 进行抽奖",
+  "tooltip.raffle.use_shift": "Shift右键: 绑定容器",
+  "tooltip.raffle.consume_items": "消耗物品: %s",
+  "tooltip.raffle.consume_self": "消耗自身: %s",
+  "tooltip.raffle.configure_list": "请先配置抽奖列表",
+  "tooltip.raffle.container_bound_at": "绑定容器位于 (%d, %d, %d)",
+
+
+  "message.raffle.no_permission": "需要创造模式且至少2级权限才能绑定容器",
+  "message.raffle.not_container": "该方块不是有效的容器",
+  "message.raffle.bind_success": "成功绑定容器至坐标 (%d, %d, %d)",
+  "message.raffle.no_rewards": "没有可抽取的物品",
+  "message.raffle.success": "成功抽取 %d 个物品!",
+  
+  "command.raffle.not_raffle_item": "%s 手中持有的不是抽奖物品",
+  "command.raffle.not_raffle_item_hand": "你手中持有的不是抽奖物品",
+  "command.raffle.drawcount_set": "已为 %s 设置抽取次数为 %d",
+  "command.raffle.repeat_set": "已为 %s 设置重复抽取为 %s",
+  "command.raffle.probability_set": "已为 %s 设置槽位 %d 的概率为 %.1f%%",
+  "command.raffle.no_block_entity": "坐标 %s 处没有方块实体",
+  "command.raffle.not_container": "坐标 %s 处不是有效容器",
+  "command.raffle.container_empty": "坐标 %s 处的容器为空",
+  "command.raffle.items_copied": "已从容器复制 %d 个物品到抽奖物品",
+  "command.raffle.consume_set": "已为 %s 设置消耗物品为 %s",
+  "command.raffle.consume_self_set": "已为 %s 设置消耗自身为 %s",
+  "command.raffle.items_cleared": "已清空物品列表",
+  "command.raffle.container_unbound": "已解绑容器",
+  "command.raffle.init_success": "已为 %s 初始化默认抽奖配置",
+
+  "raffle.yes": "是",
+  "raffle.no": "否",
+  "raffle.draw_count": "抽取次数: %d",
+  "raffle.repeat_draw": "重复抽取: %s"
 }

@@ -441,7 +441,7 @@ public class ExpressionHelper {
         @Override
         public Object get(Object key) {
             // key 通常是 registry name，如 "minecraft:speed"
-            net.minecraft.resources.ResourceLocation effectId = ResourceLocation.tryParse(key.toString());
+            ResourceLocation effectId = ResourceLocation.tryParse(key.toString());
             var effect = ForgeRegistries.MOB_EFFECTS.getValue(effectId);
             if (effect != null) {
                 MobEffectInstance instance = entity.getEffect(effect);

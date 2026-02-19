@@ -62,13 +62,14 @@ public class AffixProcessor {
                 return;
             }
 
-            // 执行操作
-            affix.execute(context);
-
             // 设置冷却
             if (affix.cooldown() > 0) {
                 context.setCooldown(affix.cooldown());
             }
+
+            // 执行操作
+            affix.execute(context);
+
         } catch (Exception e) {
             LOGGER.error("处理词缀时发生错误: {}", affix, e);
         }

@@ -7,6 +7,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.common.MinecraftForge;
+import net.yixi_xun.affix_core.AffixCoreMod;
 import net.yixi_xun.affix_core.affix.operation.*;
 import net.yixi_xun.affix_core.api.AffixEvent;
 
@@ -19,10 +20,10 @@ public class AffixManager {
     private static final String AFFIX_TAG_KEY = "Affixes";
     private static final String ITEM_UUID_NBT_KEY = "AffixItemUUID";
     
-    // 使用物品的唯一ID作为Key，而不是ItemStack对象本身
+    // 使用物品的唯一ID作为Key
     public static final Map<String, Map<String, Long>> affixCooldowns = new ConcurrentHashMap<>();
     
-    // 缓存已解析的词缀列表，以避免重复的NBT序列化/反序列化
+    // 缓存已解析的词缀列表
     private static final Map<String, WeakReference<List<Affix>>> affixCache = new ConcurrentHashMap<>();
 
 
@@ -43,6 +44,7 @@ public class AffixManager {
         HealthOperation.register();
         CustomMessageOperation.register();
         DisableAffixesOperation.register();
+        HealingOperation.register();
 
         AffixEvent.RegisterOperationEvent event = new AffixEvent.RegisterOperationEvent();
         MinecraftForge.EVENT_BUS.post(event);
@@ -78,7 +80,7 @@ public class AffixManager {
         ListTag affixList = itemStack.getOrCreateTag().getList(AFFIX_TAG_KEY, Tag.TAG_COMPOUND);
 
         for (int i = 0; i < affixList.size(); i++) {
-            affixes.add(Affix.fromNBT(affixList.getCompound(i), i));
+            affixes.add(Affix.fromNBT(affixList.getCompound(i)));
         }
 
         // 更新缓存
@@ -105,7 +107,7 @@ public class AffixManager {
             CompoundTag currentNBT = currentAffixList.getCompound(i);
             
             // 重建当前词缀并比较哈希值
-            Affix currentAffix = Affix.fromNBT(currentNBT, i);
+            Affix currentAffix = Affix.fromNBT(currentNBT);
 
             if (currentAffix == null) return false;
 
@@ -151,10 +153,10 @@ public class AffixManager {
 
         Affix affixToRemove;
         try {
-            affixToRemove = Affix.fromNBT(affixList.getCompound(index), index);
+            affixToRemove = Affix.fromNBT(affixList.getCompound(index));
         } catch (Exception e) {
             // 如果词缀无法加载，记录错误并跳过移除逻辑
-            net.yixi_xun.affix_core.AffixCoreMod.LOGGER.warn("Failed to load affix from NBT for removal at index {}: {}", index, e.getMessage());
+            AffixCoreMod.LOGGER.warn("Failed to load affix from NBT for removal at index {}: {}", index, e.getMessage());
             affixToRemove = null;
         }
         
@@ -218,7 +220,7 @@ public class AffixManager {
             return uuid.toString();
         }
         
-        // 如果物品没有词缀，使用物品的基本信息生成一个稳定的ID
+        // 如果物品没有词缀
         String itemId = itemStack.getItem().getDescriptionId();
         if (itemStack.hasTag()) {
             // 如果有其他NBT但没有词缀，也加入NBT哈希以区分
@@ -228,27 +230,72 @@ public class AffixManager {
     }
 
     /**
-     * 检查冷却是否结束
+     * 生成基于词缀UUID的冷却键
      */
-    public static boolean isCooldownOver(ItemStack itemStack, int affixIndex, Level world) {
+    public static String generateCooldownKey(Affix affix) {
+        if (affix == null || affix.uuid() == null) return "";
+        return "affix_" + affix.uuid();
+    }
+        
+    /**
+     * 检查冷却是否结束（基于词缀UUID）
+     */
+    public static boolean isCooldownOver(ItemStack itemStack, Affix affix, Level world) {
+        if (affix == null || affix.uuid() == null) return true;
+
         String itemId = getItemUniqueId(itemStack);
+        String cooldownKey = generateCooldownKey(affix);
         Map<String, Long> cooldownMap = affixCooldowns.get(itemId);
-        String key = "affix_cooldown_" + affixIndex;
-        long currentTime = world.getGameTime(); // 使用世界游戏时间
-        return cooldownMap == null || cooldownMap.getOrDefault(key, 0L) < currentTime;
+
+        if (cooldownMap == null) return true;
+
+        Long expireTime = cooldownMap.get(cooldownKey);
+        if (expireTime == null) return true;
+
+        // 添加一个小的容差值
+        long currentTime = world.getGameTime();
+        long tolerance = 2L; // 2游戏刻的容差
+
+        return expireTime <= (currentTime + tolerance);
     }
 
     /**
-     * 设置冷却
+     * 设置冷却（基于词缀UUID）
      */
-    public static void setCooldown(ItemStack itemStack, int affixIndex, long cooldownTicks, Level world) {
-        if (cooldownTicks <= 0) return;
+    public static void setCooldown(ItemStack itemStack, Affix affix, long cooldownTicks, Level world) {
+        if (cooldownTicks <= 0 || affix == null || affix.uuid() == null) return;
+            
+        String itemId = getItemUniqueId(itemStack);
+        String cooldownKey = generateCooldownKey(affix);
+            
+        long currentTime = world.getGameTime();
+        affixCooldowns.computeIfAbsent(itemId, k -> new ConcurrentHashMap<>())
+            .put(cooldownKey, currentTime + cooldownTicks);
+    }
+
+    /**
+     * 清除指定物品的所有冷却数据
+     */
+    public static void clearCooldowns(ItemStack itemStack) {
+        String itemId = getItemUniqueId(itemStack);
+        affixCooldowns.remove(itemId);
+    }
+    
+    /**
+     * 轻量级刷新方法 - 仅清除缓存，不执行移除和重新应用逻辑
+     * 适用于只需要更新缓存而不改变词缀效果的情况
+     * 
+     * @param itemStack 要刷新的物品
+     */
+    public static void refreshAffixes(ItemStack itemStack) {
+        if (itemStack == null) {
+            return;
+        }
         
         String itemId = getItemUniqueId(itemStack);
-        String key = "affix_cooldown_" + affixIndex;
-        
-        long currentTime = world.getGameTime(); 
-        affixCooldowns.computeIfAbsent(itemId, k -> new ConcurrentHashMap<>())
-            .put(key, currentTime + cooldownTicks);
+        affixCache.remove(itemId);
+        AffixCoreMod.LOGGER.debug("已清除物品词缀缓存: {} (ID: {})", 
+            itemStack.getHoverName().getString(), itemId);
     }
+
 }

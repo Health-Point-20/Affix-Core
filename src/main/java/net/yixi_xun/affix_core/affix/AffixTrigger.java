@@ -124,7 +124,13 @@ public class AffixTrigger {
     @SubscribeEvent
     public static void onInteract(PlayerInteractEvent.RightClickItem event) {
         processAffixTrigger(event.getEntity(), "on_right_click", event);
-        // 右键的目标为方块
+    }
+
+    /**
+     * 右键方块监听器
+     */
+    @SubscribeEvent
+    public static void onInteractBlock(PlayerInteractEvent.RightClickBlock event) {
         BlockState block = event.getLevel().getBlockState(event.getPos());
         if (!block.isAir()) {
             processAffixTriggerWithVars(event.getEntity(), "on_right_click_block", event, (context) -> {
@@ -243,9 +249,10 @@ public class AffixTrigger {
      */
     public static void processAffixTriggerWithVars(Entity entity, String trigger, Event event, Consumer<AffixContext> eventVarSetter) {
         // 只处理实体
-        if (!(entity instanceof LivingEntity living)) {
-            return;
-        }
+        if (!(entity instanceof LivingEntity living)) return;
+
+        // 只在服务端处理
+        if (living.level().isClientSide()) return;
 
         try {
             // 预先构建词缀到槽位的映射，避免重复查询

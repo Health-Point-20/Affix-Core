@@ -6,5 +6,49 @@
   "attribute.affix_core.final_hit_rate": "Final Hit Rate",
   "attribute.affix_core.final_evasion": "Final Evasion",
   "affix_core.hit_miss": "Your attacks are dodged by %s",
-  "attribute.modifier.potency": "Potency"
+  "attribute.modifier.potency": "Potency",
+  "item_group.affix_core": "Affix Core",
+  
+  "item.affix_core.raffle_item": "Raffle Item",
+  
+  "tooltip.raffle.item": "Raffle Item",
+  "tooltip.raffle.hold_shift": "Hold Shift for Probability Details",
+  "tooltip.raffle.probabilities": "Probability Details:",
+  "tooltip.raffle.container_mode": "Container Mode:",
+  "tooltip.raffle.item_list_mode": "Item List Mode:",
+  "tooltip.raffle.container_not_available": "Container not available",
+  "tooltip.raffle.usage": "Usage Instructions:",
+  "tooltip.raffle.use_normal": "Right-click: Draw items",
+  "tooltip.raffle.use_shift": "Shift Right-click: Bind container",
+  "tooltip.raffle.consume_items": "Consume Items: %s",
+  "tooltip.raffle.consume_self": "Consume Self: %s",
+  "tooltip.raffle.configure_list": "Please Configure The Lottery List First",
+  "tooltip.raffle.container_bound_at": "The bound container is located at (%d, %d, %d)",
+
+
+  "message.raffle.no_permission": "Need Creative mode and at least level 2 permission to bind container",
+  "message.raffle.not_container": "That block is not a valid container",
+  "message.raffle.bind_success": "Successfully bound container at coordinates (%d, %d, %d)",
+  "message.raffle.no_rewards": "No items available to draw",
+  "message.raffle.success": "Successfully drew %d items!",
+
+  "command.raffle.not_raffle_item": "%s is not holding a raffle item",
+  "command.raffle.not_raffle_item_hand": "You are not holding a raffle item",
+  "command.raffle.drawcount_set": "Set draw count to %d for %s",
+  "command.raffle.repeat_set": "Set repeat draw to %s for %s",
+  "command.raffle.probability_set": "Set slot %d probability to %.1f%% for %s",
+  "command.raffle.no_block_entity": "No block entity at coordinates %s",
+  "command.raffle.not_container": "Not a valid container at coordinates %s",
+  "command.raffle.container_empty": "Container at coordinates %s is empty",
+  "command.raffle.items_copied": "Copied %d items from container to raffle item",
+  "command.raffle.consume_set": "Set consume items to %s for %s",
+  "command.raffle.consume_self_set": "Set consume self to %s for %s",
+  "command.raffle.items_cleared": "Cleared item list successfully",
+  "command.raffle.container_unbound": "Unbound container successfully",
+  "command.raffle.init_success": "Initialized default raffle configuration for %s",
+
+  "raffle.yes": "Yes",
+  "raffle.no": "No",
+  "raffle.draw_count": "Draw Count: %d",
+  "raffle.repeat_draw": "Repeat Draw: %s"
 }

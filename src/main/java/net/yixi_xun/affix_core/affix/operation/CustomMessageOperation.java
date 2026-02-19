@@ -1,25 +1,39 @@
 package net.yixi_xun.affix_core.affix.operation;
 
 import net.minecraft.nbt.CompoundTag;
+import net.yixi_xun.affix_core.AffixCoreMod;
 import net.yixi_xun.affix_core.affix.AffixContext;
 import net.yixi_xun.affix_core.api.AffixEvent.CustomMessageEvent;
 
 import static net.minecraftforge.common.MinecraftForge.EVENT_BUS;
 
-public class CustomMessageOperation implements IOperation{
+/**
+ * 自定义消息操作，用于发送自定义消息事件
+ */
+public class CustomMessageOperation extends BaseOperation {
     private final String message;
-    private final String targetString;
+    private final String target;
 
-    public CustomMessageOperation(String message, String targetString) {
-        this.message = message;
-        this.targetString = targetString;
+    public CustomMessageOperation(String message, String target) {
+        this.message = message != null ? message : "default_message";
+        this.target = target != null ? target : "self";
     }
 
     @Override
     public void apply(AffixContext context) {
-        var target = targetString.equals("self") ? context.getOwner() : context.getTarget();
-        CustomMessageEvent event = new CustomMessageEvent(target, message);
-        EVENT_BUS.post(event);
+        if (context == null) {
+            return;
+        }
+        
+        try {
+            var targetEntity = getTargetEntity(context, target);
+            if (targetEntity != null) {
+                CustomMessageEvent event = new CustomMessageEvent(targetEntity, message);
+                EVENT_BUS.post(event);
+            }
+        } catch (Exception e) {
+            AffixCoreMod.LOGGER.error("发送自定义消息时发生错误: {}", message, e);
+        }
     }
 
     @Override
@@ -31,7 +45,7 @@ public class CustomMessageOperation implements IOperation{
     public CompoundTag toNBT() {
         CompoundTag nbt = new CompoundTag();
         nbt.putString("Type", getType());
-        nbt.putString("Target", targetString);
+        nbt.putString("Target", target);
         nbt.putString("Message", message);
         return nbt;
     }

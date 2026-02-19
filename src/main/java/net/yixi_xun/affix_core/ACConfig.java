@@ -7,13 +7,14 @@ import net.minecraftforge.fml.event.config.ModConfigEvent;
 
 // Config class for the mod
 @Mod.EventBusSubscriber(modid = AffixCoreMod.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
-public class AFConfig {
+public class ACConfig {
     private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
 
 
     // 范围伤害相关配置
     public static final ForgeConfigSpec.DoubleValue MAX_AREA_DAMAGE_RANGE;
     public static final ForgeConfigSpec.IntValue MAX_AREA_DAMAGE_ENTITIES;
+    public static final ForgeConfigSpec.BooleanValue SHOW_RAFFLE_CONTAINER_POS;
     
     static {
         BUILDER.push("area_damage");
@@ -23,6 +24,11 @@ public class AFConfig {
         MAX_AREA_DAMAGE_ENTITIES = BUILDER
             .comment("Maximum number of entities that can be affected by area damage to prevent performance issues (default: 64)")
             .defineInRange("maxAreaDamageEntities", 128, 1, 1024);
+        BUILDER.pop();
+        BUILDER.push("raffle");
+        SHOW_RAFFLE_CONTAINER_POS = BUILDER
+            .comment("Whether to show the container position in the tooltip when container Mode (default: false)")
+            .define("showRaffleContainerPos", false);
         BUILDER.pop();
     }
 

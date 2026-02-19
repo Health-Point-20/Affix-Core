@@ -6,88 +6,102 @@ import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraftforge.registries.ForgeRegistries;
+import net.yixi_xun.affix_core.AffixCoreMod;
 import net.yixi_xun.affix_core.affix.AffixContext;
-import net.yixi_xun.affix_core.api.ExpressionHelper;
 
 /**
  * 药水效果操作，给目标或自己添加药水效果
  */
-public class PotionOperation implements IOperation {
+public class PotionOperation extends BaseOperation {
 
     private final ResourceLocation effectId;
     private final String durationExpression;
     private final String amplifierExpression;
+    private final boolean overlayEffect;
     private final String maxAmplifierExpression;
+    private final String maxDurationExpression;
     private final boolean ambient;
     private final boolean showParticles;
     private final boolean showIcon;
-    private final boolean overlayEffect;
     private final String targetString;
 
-    public PotionOperation(ResourceLocation effectId, String durationExpression, String amplifierExpression, String maxAmplifierExpression, boolean ambient, 
-                          boolean showParticles, boolean showIcon, boolean overrideExisting, String target) {
-        this.effectId = effectId;
-        this.durationExpression = durationExpression;
-        this.amplifierExpression = amplifierExpression;
-        this.maxAmplifierExpression = maxAmplifierExpression;
+    public PotionOperation(ResourceLocation effectId, String durationExpression, String amplifierExpression, 
+                          String maxAmplifierExpression, String maxDurationExpression, boolean ambient, boolean showParticles,
+                          boolean showIcon, boolean overrideExisting, String target) {
+        this.effectId = effectId != null ? effectId : ResourceLocation.tryParse("minecraft.speed");
+        this.durationExpression = durationExpression != null ? durationExpression : "100";
+        this.amplifierExpression = amplifierExpression != null ? amplifierExpression : "0";
+        this.maxAmplifierExpression = maxAmplifierExpression != null ? maxAmplifierExpression : "4";
+        this.maxDurationExpression = maxDurationExpression != null ? maxDurationExpression : "100";
         this.ambient = ambient;
         this.showParticles = showParticles;
         this.showIcon = showIcon;
         this.overlayEffect = overrideExisting;
-        this.targetString = target;
+        this.targetString = target != null ? target : "target";
     }
 
     @Override
     public void apply(AffixContext context) {
+        if (context == null) {
+            return;
+        }
+        
         MobEffect effect = ForgeRegistries.MOB_EFFECTS.getValue(effectId);
         if (effect == null) {
+            AffixCoreMod.LOGGER.warn("无效的药水效果ID: {}", effectId);
             return;
         }
 
-        // 确定目标实体
-        LivingEntity target = targetString.equals("self") ? context.getOwner() : context.getTarget();
-        if (target == null) {
-            // 如果无法获取目标实体，则使用持有者作为默认目标
-            target = context.getOwner();
-        }
-        if (target == null) {
-            return; // 如果仍然为空，则返回
+        LivingEntity target = getTargetEntity(context, targetString);
+        if (isInValidEntity(target)) {
+            return;
         }
 
-        // 计算药水效果的持续时间和等级
-        int amplifier = (int) Math.max(0, ExpressionHelper.evaluate(amplifierExpression, context.getVariables()));
-        int duration = (int) Math.max(0, ExpressionHelper.evaluate(durationExpression, context.getVariables()));
-        int maxAmplifier = (int) Math.max(0, ExpressionHelper.evaluate(maxAmplifierExpression, context.getVariables()));
+        // 计算药水效果参数
+        int amplifier = calculateAmplifier(context, effect, target);
+        int duration = calculateDuration(context, effect, target);
 
-        // 处理效果叠加逻辑
-        MobEffectInstance existingEffect = target.getEffect(effect);
-        if (existingEffect != null && overlayEffect) {
-            // 将amplifier转换为等级
-            int existingLevel = existingEffect.getAmplifier() + 1;
-            int level = amplifier + 1; // 新增效果也转换为等级
-            
-            // 进行等级叠加
-            int finalLevel = existingLevel + level - 1; // 减1是因为等级1对应放大器0
-            
-            // 转换回amplifier并应用最大限制
-            amplifier = Math.min(finalLevel - 1, maxAmplifier);
-        } else {
-            // 直接应用
-            amplifier = Math.min(amplifier, maxAmplifier);
-        }
-
-        // 创建药水效果实例
+        // 创建并应用药水效果
         MobEffectInstance effectInstance = new MobEffectInstance(
-            effect, 
-            duration,
-            amplifier,
-            ambient, 
-            showParticles, 
-            showIcon
+            effect, duration, amplifier, ambient, showParticles, showIcon
         );
-
-        // 应用药水效果
         target.addEffect(effectInstance);
+    }
+
+    /**
+     * 计算药水效果等级（考虑叠加逻辑）
+     */
+    private int calculateAmplifier(AffixContext context, MobEffect effect, LivingEntity target) {
+        int baseAmplifier = Math.max(0, (int) evaluateOrDefaultValue(amplifierExpression, context.getVariables(), 0));
+        int maxAmplifier = Math.max(0, (int) evaluateOrDefaultValue(maxAmplifierExpression, context.getVariables(), 4));
+
+        if (overlayEffect) {
+            MobEffectInstance existingEffect = target.getEffect(effect);
+            if (existingEffect != null) {
+                int existingLevel = existingEffect.getAmplifier() + 1;
+                int newLevel = baseAmplifier + 1;
+                int finalAmplifier = existingLevel + newLevel - 1;
+                return Math.min(finalAmplifier, maxAmplifier);
+            }
+        }
+        
+        return Math.min(baseAmplifier, maxAmplifier);
+    }
+
+    private int calculateDuration(AffixContext context, MobEffect effect, LivingEntity target) {
+        int baseDuration = Math.max(0, (int) evaluateOrDefaultValue(durationExpression, context.getVariables(), 100));
+        int maxDuration = Math.max(0, (int) evaluateOrDefaultValue(maxDurationExpression, context.getVariables(), 100000));
+
+        if (overlayEffect) {
+            MobEffectInstance existingEffect = target.getEffect(effect);
+            if (existingEffect != null) {
+                int existingDuration = existingEffect.getDuration();
+                int finalDuration = existingDuration + baseDuration;
+                return Math.min(finalDuration, maxDuration);
+            }
+        }
+
+        return Math.min(baseDuration, maxDuration);
     }
 
     @Override
@@ -107,6 +121,7 @@ public class PotionOperation implements IOperation {
         nbt.putBoolean("ShowIcon", showIcon);
         nbt.putBoolean("OverlayEffect", overlayEffect);
         nbt.putString("MaxAmplifierExpression", maxAmplifierExpression);
+        nbt.putString("MaxDurationExpression", maxDurationExpression);
         nbt.putString("Target", targetString);
         return nbt;
     }
@@ -130,9 +145,10 @@ public class PotionOperation implements IOperation {
         boolean showIcon = !nbt.contains("ShowIcon") || nbt.getBoolean("ShowIcon");
         boolean overlayEffect = nbt.contains("OverlayEffect") && nbt.getBoolean("OverlayEffect");
         String maxAmplifierExpression = nbt.contains("MaxAmplifierExpression") ? nbt.getString("MaxAmplifierExpression") : "4";
+        String maxDurationExpression = nbt.contains("MaxDurationExpression") ? nbt.getString("MaxDurationExpression") : "100000";
         String target = nbt.contains("Target") ? nbt.getString("Target") : "target";
 
-        return new PotionOperation(effectId, durationExpression, amplifierExpression, maxAmplifierExpression, ambient, showParticles, showIcon, overlayEffect, target);
+        return new PotionOperation(effectId, durationExpression, amplifierExpression, maxAmplifierExpression, maxDurationExpression, ambient, showParticles, showIcon, overlayEffect, target);
     }
 
     /**

@@ -4,25 +4,28 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.yixi_xun.affix_core.affix.AffixContext;
 
-import static net.yixi_xun.affix_core.api.ExpressionHelper.evaluate;
-
 /**
- * 伤害操作，修改造成的伤害
+ * 修改伤害操作，在攻击或受伤事件中修改伤害值
  */
-public class ModifyDamageOperation implements IOperation {
+public class ModifyDamageOperation extends BaseOperation {
 
     private final String amountExpression;
-    private final String operation;
+    private final MathOperation operation;
 
     public ModifyDamageOperation(String amountExpression, String operation) {
-        this.amountExpression = amountExpression;
-        this.operation = operation;
+        this.amountExpression = amountExpression != null ? amountExpression : "damage";
+        this.operation = MathOperation.fromString(operation);
     }
 
     @Override
     public void apply(AffixContext context) {
+        if (context == null) {
+            return;
+        }
+        
         // 只在攻击事件中生效
-        if (!context.getTrigger().contains("on_attack") && !context.getTrigger().contains("on_hurt")) {
+        String trigger = context.getTrigger() != null ? context.getTrigger().toString() : "";
+        if (trigger == null || (!trigger.contains("on_attack") && !trigger.contains("on_hurt"))) {
             return;
         }
 
@@ -30,14 +33,12 @@ public class ModifyDamageOperation implements IOperation {
             return;
         }
 
+        // 移除 try-catch 块，因为 ExpressionHelper 已经处理了表达式异常
         float originalAmount = event.getAmount();
-        float calculatedValue = (float) evaluate(amountExpression, context.getVariables());
-
-        switch (operation) {
-            case "add" -> event.setAmount(originalAmount + calculatedValue);
-            case "multiply" -> event.setAmount(originalAmount * calculatedValue);
-            case "set" -> event.setAmount(calculatedValue);
-        }
+        float calculatedValue = (float) evaluateOrDefaultValue(amountExpression, context.getVariables(), originalAmount);
+        float newValue = operation.apply(originalAmount, calculatedValue);
+        event.setAmount(newValue);
+        // 移除 catch 块
     }
 
     @Override
@@ -50,7 +51,7 @@ public class ModifyDamageOperation implements IOperation {
         CompoundTag nbt = new CompoundTag();
         nbt.putString("Type", getType());
         nbt.putString("AmountExpression", amountExpression);
-        nbt.putString("Operation", operation);
+        nbt.putString("Operation", operation.getName());
         return nbt;
     }
 

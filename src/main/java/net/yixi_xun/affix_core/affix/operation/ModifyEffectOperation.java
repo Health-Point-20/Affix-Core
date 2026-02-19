@@ -5,46 +5,63 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraftforge.event.entity.living.MobEffectEvent;
 import net.minecraftforge.eventbus.api.Event;
+import net.yixi_xun.affix_core.AffixCoreMod;
 import net.yixi_xun.affix_core.affix.AffixContext;
-import net.yixi_xun.affix_core.api.ExpressionHelper;
 
 /**
- * 药水效果操作，修改添加的药水效果
+ * 修改药水效果操作，在药水效果应用事件中修改效果参数
  */
-public class ModifyEffectOperation implements IOperation {
+public class ModifyEffectOperation extends BaseOperation {
 
     private final String durationExpression;
     private final String amplifierExpression;
 
     public ModifyEffectOperation(String durationExpression, String amplifierExpression) {
-        this.durationExpression = durationExpression;
-        this.amplifierExpression = amplifierExpression;
+        this.durationExpression = durationExpression != null ? durationExpression : "100";
+        this.amplifierExpression = amplifierExpression != null ? amplifierExpression : "0";
     }
 
     @Override
     public void apply(AffixContext context) {
-        if (!(context.getEvent() instanceof MobEffectEvent.Applicable event)) return;
+        if (context == null) {
+            return;
+        }
+        
+        if (!(context.getEvent() instanceof MobEffectEvent.Applicable event)) {
+            return;
+        }
+        
         LivingEntity entity = event.getEntity();
-        if (entity == null) return;
-        if (entity.getPersistentData().getBoolean("affix_effect_modifying")) return;
-        event.setResult(Event.Result.DENY);
+        if (entity == null || entity.getPersistentData().getBoolean("affix_effect_modifying")) {
+            return;
+        }
+        
         MobEffectInstance oldEffect = event.getEffectInstance();
 
-        // 计算药水效果的持续时间和等级
-        int computedDuration = (int) ExpressionHelper.evaluate(durationExpression, context.getVariables());
-        int computedAmplifier = (int) ExpressionHelper.evaluate(amplifierExpression, context.getVariables());
+        try {
+            // 计算新效果参数
+            int newDuration = Math.max(0, (int) evaluateOrDefaultValue(durationExpression, context.getVariables(), oldEffect.getDuration()));
+            int newAmplifier = Math.max(0, (int) evaluateOrDefaultValue(amplifierExpression, context.getVariables(), oldEffect.getAmplifier()));
 
-        if (computedDuration <= 0 || computedAmplifier < 0) return;
+            if (newDuration == 0) {
+                event.setResult(Event.Result.DENY);
+                return;
+            }
 
-        // 创建药水效果实例
-        MobEffectInstance effectInstance = new MobEffectInstance(
-            oldEffect.getEffect(),
-            computedDuration, 
-            computedAmplifier
-        );
-        entity.getPersistentData().putBoolean("affix_effect_modifying", true);
-        entity.addEffect(effectInstance);
-        entity.getPersistentData().remove("affix_effect_modifying");
+            // 创建并应用新效果
+            event.setResult(Event.Result.DENY);
+            MobEffectInstance newEffect = new MobEffectInstance(
+                oldEffect.getEffect(),
+                newDuration,
+                newAmplifier
+            );
+            
+            entity.getPersistentData().putBoolean("affix_effect_modifying", true);
+            entity.addEffect(newEffect);
+            entity.getPersistentData().remove("affix_effect_modifying");
+        } catch (Exception e) {
+            AffixCoreMod.LOGGER.error("修改药水效果时发生错误", e);
+        }
     }
 
     @Override
@@ -70,8 +87,8 @@ public class ModifyEffectOperation implements IOperation {
      * 工厂方法，从NBT创建PotionOperation
      */
     public static ModifyEffectOperation fromNBT(CompoundTag nbt) {
-        String durationExpression = nbt.contains("DurationExpression") ? nbt.getString("DurationExpression") : "100";
-        String amplifierExpression = nbt.contains("AmplifierExpression") ? nbt.getString("AmplifierExpression") : "0";
+        String durationExpression = getString(nbt, "DurationExpression", "100");
+        String amplifierExpression = getString(nbt, "AmplifierExpression", "0");
 
         return new ModifyEffectOperation(durationExpression, amplifierExpression);
     }

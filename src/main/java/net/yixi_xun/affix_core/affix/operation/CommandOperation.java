@@ -15,54 +15,64 @@ import static net.yixi_xun.affix_core.AffixCoreMod.LOGGER;
 /**
  * 命令执行操作，用于执行服务器命令
  */
-public class CommandOperation implements IOperation {
-    private final String command;            // 命令表达式，可能包含变量
-    private final String executor;           // 执行者类型：server(服务器), self(玩家)
+public class CommandOperation extends BaseOperation {
+    private final String command;
+    private final String executor;
 
     public CommandOperation(String command, String executor) {
         this.command = command != null ? command : "";
-        this.executor = executor != null ? executor : "server"; // 默认为服务器执行
+        this.executor = executor != null ? executor : "server";
     }
 
     @Override
     public void apply(AffixContext context) {
-        // 检查命令表达式是否为空
-        if (command.trim().isEmpty()) {
-            return; // 如果命令表达式为空，则不执行任何操作
+        if (context == null || command.trim().isEmpty()) {
+            return;
         }
         
         MinecraftServer server = context.getWorld().getServer();
         if (server == null) {
+            LOGGER.warn("无法获取服务器实例，跳过命令执行");
             return;
         }
 
-        // 替换命令表达式中的变量
-        String processedCommand = replaceVariables(command, context.getVariables());
+        try {
+            String processedCommand = processCommand(context);
+            executeCommand(server, processedCommand, context);
+        } catch (Exception e) {
+            LOGGER.error("执行命令时发生严重错误: {}", command, e);
+        }
+    }
 
+    /**
+     * 处理命令字符串，包括变量替换和格式化
+     */
+    private String processCommand(AffixContext context) {
+        String processedCommand = replaceVariables(command, context.getVariables());
+        
         // 确保命令以'/'开头
         if (!processedCommand.startsWith("/")) {
             processedCommand = "/" + processedCommand;
         }
+        
+        return processedCommand.trim();
+    }
 
-        try {
-            if ("server".equals(executor)) {
-                // 作为服务器执行命令
-                server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), processedCommand);
+    /**
+     * 执行处理后的命令
+     */
+    private void executeCommand(MinecraftServer server, String processedCommand, AffixContext context) {
+        if ("server".equals(executor)) {
+            server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), processedCommand);
+        } else {
+            Entity executorEntity = getExecutorEntity(context);
+            if (executorEntity != null) {
+                CommandSourceStack sourceStack = executorEntity.createCommandSourceStack();
+                server.getCommands().performPrefixedCommand(sourceStack, processedCommand);
             } else {
-                // 作为特定实体执行命令
-                Entity executorEntity = getExecutorEntity(context);
-                if (executorEntity != null) {
-                    // 获取执行者的命令源
-                    CommandSourceStack sourceStack = server.createCommandSourceStack().withEntity(executorEntity);
-                    server.getCommands().performPrefixedCommand(sourceStack, processedCommand);
-                } else {
-                    // 如果实体不能作为命令源，则使用服务器执行
-                    server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), processedCommand);
-                }
+                server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), processedCommand);
+                LOGGER.debug("无法获取执行实体，使用服务器命令源执行: {}", processedCommand);
             }
-        } catch (Exception e) {
-            // 捕获执行命令时可能出现的异常
-            LOGGER.warn("执行命令时出现错误: {}", processedCommand, e);
         }
     }
 
@@ -110,7 +120,10 @@ public class CommandOperation implements IOperation {
             case "self" -> context.getOwner();
             case "target" -> context.getTarget();
             case "server" -> null;
-            default -> context.getOwner(); // 默认为持有者
+            default -> {
+                LOGGER.warn("未知的执行者类型: {}, 使用默认(self)", executor);
+                yield context.getOwner();
+            }
         };
     }
 
@@ -137,8 +150,8 @@ public class CommandOperation implements IOperation {
      * 工厂方法，从NBT创建CommandOperation
      */
     public static CommandOperation fromNBT(CompoundTag nbt) {
-        String command = nbt.contains("Command") ? nbt.getString("Command") : "";
-        String executor = nbt.contains("Executor") ? nbt.getString("Executor") : "server";
+        String command = getString(nbt, "Command", "");
+        String executor = getString(nbt, "Executor", "server");
 
         return new CommandOperation(command, executor);
     }

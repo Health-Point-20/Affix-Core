@@ -1,101 +1,124 @@
 package net.yixi_xun.affix_core.affix.operation;
 
-
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraftforge.registries.ForgeRegistries;
+import net.yixi_xun.affix_core.AffixCoreMod;
 import net.yixi_xun.affix_core.affix.AffixContext;
 
 import java.util.*;
 
 import static net.yixi_xun.affix_core.AffixCoreMod.queueServerWork;
-import static net.yixi_xun.affix_core.api.ExpressionHelper.evaluate;
 
 /**
  * 属性操作，用于修改实体的属性
  */
-public class AttributeOperation implements IOperation {
-    public static final Map<AttributeModifier, Long> MODIFIERS = new HashMap<>();
-    public static final Map<String, Set<AttributeModifier>> APPLIED_MODIFIERS = new HashMap<>();
+public class AttributeOperation extends BaseOperation {
+    private static final Map<AttributeModifier, Long> MODIFIERS = Collections.synchronizedMap(new HashMap<>());
+    private static final Map<String, Set<AttributeModifier>> APPLIED_MODIFIERS = Collections.synchronizedMap(new HashMap<>());
 
-    private final ResourceLocation attributeId;  // 属性ID
-    private final String amountExpression;       // 属性值表达式
-    private final AttributeModifier.Operation operation;  // 操作类型
-    private final String name;                               // 属性修饰符名称
-    private final boolean isPermanent;  // 是否永久生效
+    private final ResourceLocation attributeId;
+    private final String amountExpression;
+    private final AttributeModifier.Operation operation;
+    private final String name;
+    private final boolean isPermanent;
     private final String durationExpression;
-    private final String target;  // 目标
-    private final boolean shouldRemove;  // 是否启用移除功能
+    private final String target;
+    private final boolean shouldRemove;
 
-    public AttributeOperation(ResourceLocation attributeId, String amountExpression, AttributeModifier.Operation operation, String name, boolean isPermanent, String durationExpression, String target, boolean shouldRemove) {
-        this.attributeId = attributeId;
-        this.amountExpression = amountExpression;
-        this.operation = operation;
-        this.name = name;
+    public AttributeOperation(ResourceLocation attributeId, String amountExpression, 
+                             AttributeModifier.Operation operation, String name, 
+                             boolean isPermanent, String durationExpression, 
+                             String target, boolean shouldRemove) {
+        this.attributeId = attributeId != null ? attributeId : ResourceLocation.tryParse("generic.attack_damage");
+        this.amountExpression = amountExpression != null ? amountExpression : "0";
+        this.operation = operation != null ? operation : AttributeModifier.Operation.ADDITION;
+        this.name = name != null && !name.isEmpty() ? name : "Affix Attribute Modifier";
         this.isPermanent = isPermanent;
-        this.durationExpression = durationExpression;
-        this.target = target;
+        this.durationExpression = durationExpression != null ? durationExpression : "100";
+        this.target = target != null ? target : "self";
         this.shouldRemove = shouldRemove;
     }
 
     @Override
     public void apply(AffixContext context) {
-        // 获取属性
+        if (context == null) {
+            return;
+        }
+        
         Attribute attribute = ForgeRegistries.ATTRIBUTES.getValue(attributeId);
         if (attribute == null) {
+            AffixCoreMod.LOGGER.warn("无效的属性ID: {}", attributeId);
             return;
         }
 
-        // 计算属性值
-        double computedAmount = evaluate(amountExpression, context.getVariables());
+        double computedAmount = evaluateOrDefaultValue(amountExpression, context.getVariables(), 0.0);
+        UUID uuid = generateUUID(context);
+        AttributeModifier modifier = new AttributeModifier(uuid, name, computedAmount, operation);
 
-        // 创建UUID
-        UUID uuid = UUID.nameUUIDFromBytes((name + attributeId.toString() + amountExpression + context.getAffixIndex()).getBytes());
+        var targetEntity = getTargetEntity(context, target);
+        if (isInValidEntity(targetEntity)) {
+            return;
+        }
 
-        // 创建属性修饰符
-        AttributeModifier modifier = new AttributeModifier(
-                uuid,
-                name,
-                computedAmount,
-                operation
-        );
-
-        // 根据target确定应用到哪个实体
-        var targetEntity = target.equals("self") ? context.getOwner() : context.getTarget();
-
-        // 应用属性修饰符到实体
         var attributeInstance = targetEntity.getAttribute(attribute);
         if (attributeInstance != null && attributeInstance.getModifier(uuid) == null) {
             attributeInstance.addTransientModifier(modifier);
-
-            // 将修饰符添加到跟踪集合中，以便稍后可以移除
+            
             String key = generateKey(context);
-            APPLIED_MODIFIERS.computeIfAbsent(key, k -> new HashSet<>()).add(modifier);
+            synchronized (APPLIED_MODIFIERS) {
+                APPLIED_MODIFIERS.computeIfAbsent(key, k -> Collections.synchronizedSet(new HashSet<>())).add(modifier);
+            }
 
             if (!isPermanent) {
-                // 计算持续时间
-                int duration = (int) evaluate(durationExpression, context.getVariables());
-                MODIFIERS.put(modifier, context.getWorld().getGameTime() + duration);
-                // 持续时间到后移除
-                queueServerWork(duration, () -> {
-                            if (MODIFIERS.containsKey(modifier)) {
-                                MODIFIERS.remove(modifier);
-                                attributeInstance.removeModifier(modifier);
+                scheduleRemoval(context, modifier, attributeInstance, key);
+            }
+        }
+    }
 
-                                // 从跟踪集合中移除
-                                Set<AttributeModifier> trackedModifiers = APPLIED_MODIFIERS.get(key);
-                                if (trackedModifiers != null) {
-                                    trackedModifiers.remove(modifier);
-                                    // 如果集合为空，则完全移除该键
-                                    if (trackedModifiers.isEmpty()) {
-                                        APPLIED_MODIFIERS.remove(key);
-                                    }
-                                }
-                            }
-                        }
-                );
+    /**
+     * 生成修饰符UUID
+     */
+    private UUID generateUUID(AffixContext context) {
+        String seed = name + attributeId.toString() + amountExpression + context.getAffix().uuid();
+        return UUID.nameUUIDFromBytes(seed.getBytes());
+    }
+
+    /**
+     * 安排修饰符移除
+     */
+    private void scheduleRemoval(AffixContext context, AttributeModifier modifier, 
+                               AttributeInstance attributeInstance, String key) {
+        int duration = Math.max(1, (int) evaluateOrDefaultValue(durationExpression, context.getVariables(), 100));
+        MODIFIERS.put(modifier, context.getWorld().getGameTime() + duration);
+        
+        queueServerWork(duration, () -> {
+            try {
+                if (MODIFIERS.containsKey(modifier)) {
+                    MODIFIERS.remove(modifier);
+                    attributeInstance.removeModifier(modifier);
+                    removeFromTracking(key, modifier);
+                }
+            } catch (Exception e) {
+                AffixCoreMod.LOGGER.warn("移除属性修饰符时发生错误", e);
+            }
+        });
+    }
+
+    /**
+     * 从跟踪集合中移除修饰符
+     */
+    private void removeFromTracking(String key, AttributeModifier modifier) {
+        synchronized (APPLIED_MODIFIERS) {
+            Set<AttributeModifier> trackedModifiers = APPLIED_MODIFIERS.get(key);
+            if (trackedModifiers != null) {
+                trackedModifiers.remove(modifier);
+                if (trackedModifiers.isEmpty()) {
+                    APPLIED_MODIFIERS.remove(key);
+                }
             }
         }
     }
@@ -122,7 +145,7 @@ public class AttributeOperation implements IOperation {
             }
 
             // 使用与应用时相同的目标实体
-            var targetEntity = target.equals("self") ? context.getOwner() : context.getTarget();
+            var targetEntity = getTargetEntity(context, target);
             if (targetEntity == null) {
                 return;
             }
@@ -150,7 +173,7 @@ public class AttributeOperation implements IOperation {
         return context.getOwner().getStringUUID() + "_" +
                 attributeId.toString() + "_" +
                 name + "_" +
-                context.getAffixIndex();
+                context.getAffix().uuid();
     }
 
     @Override

@@ -262,12 +262,8 @@ public class TooltipHandler {
         }
         
         // 处理复杂的表达式条件
-        try {
-            Map<String, Object> variables = createContextVariables(player, player.getMainHandItem());
-            return ExpressionHelper.evaluateCondition(condition, variables);
-        } catch (Exception e) {
-            return false;
-        }
+        Map<String, Object> variables = createContextVariables(player, player.getMainHandItem());
+        return ExpressionHelper.evaluateCondition(condition, variables);
     }
     
     /**
