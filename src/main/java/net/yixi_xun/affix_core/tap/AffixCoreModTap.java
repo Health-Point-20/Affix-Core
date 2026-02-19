@@ -17,8 +17,6 @@ public class AffixCoreModTap {
     public static final RegistryObject<CreativeModeTab> AFFIX_CORE_MOD_TAB = REGISTRY.register("affix_core",
             () -> CreativeModeTab.builder().title(Component.translatable("item_group.affix_core"))
                     .icon(() -> new ItemStack(AffixCoreModItems.RAFFLE_ITEM.get()))
-                    .displayItems((parameters, tab) -> {
-                        tab.accept(AffixCoreModItems.RAFFLE_ITEM.get());
-                    }).build()
+                    .displayItems((parameters, tab) -> tab.accept(AffixCoreModItems.RAFFLE_ITEM.get())).build()
     );
 }
