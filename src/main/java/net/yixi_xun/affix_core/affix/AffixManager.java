@@ -45,6 +45,7 @@ public class AffixManager {
         CustomMessageOperation.register();
         DisableAffixesOperation.register();
         HealingOperation.register();
+        ItemOperation.register();
 
         AffixEvent.RegisterOperationEvent event = new AffixEvent.RegisterOperationEvent();
         MinecraftForge.EVENT_BUS.post(event);

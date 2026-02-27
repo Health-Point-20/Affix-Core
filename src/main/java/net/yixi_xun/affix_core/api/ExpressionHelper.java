@@ -363,7 +363,7 @@ public class ExpressionHelper {
         return null;
     }
 
-    // 导航对象路径 (核心优化：按需获取实体数据)
+    // 导航对象路径
     private static Object navigatePath(Object obj, String[] pathParts) {
         Object current = obj;
 
@@ -372,10 +372,11 @@ public class ExpressionHelper {
 
             if (current instanceof Map<?, ?> map) {
                 if (map.containsKey(part)) {
+                    // 获取map中的值
                     current = map.get(part);
                 } else if (map.containsKey("entity_ref")) {
-                    // 优化点：检测到 entity_ref 时，动态处理 attribute/effect/nbt
-                    // 避免在创建 Map 时就遍历所有属性/效果，极大提升性能
+                    // 检测到 entity_ref 时，动态处理 attribute/effect/nbt
+                    // 避免在创建 Map 时就遍历所有属性/效果
                     Object entityRef = map.get("entity_ref");
                     if (entityRef instanceof LivingEntity entity) {
                         current = handleEntityPropertyDynamic(entity, part);
@@ -399,12 +400,12 @@ public class ExpressionHelper {
         return switch (part) {
             case "attribute" -> new EntityAttributeWrapper(entity); // 返回一个包装器，支持后续路径查找
             case "effect" -> new EntityEffectWrapper(entity);
-            case "nbt" -> parseNbtCompound(entity.getPersistentData()); // NBT 通常较小，暂保留全量解析或可进一步优化
+            case "nbt" -> parseNbtCompound(entity.getPersistentData());
             default -> 0.0;
         };
     }
 
-    // 包装器类，用于延迟获取特定属性 (替代原先的 getEntityAttributes 全量获取)
+    // 包装器类，用于延迟获取特定属性
     private static class EntityAttributeWrapper extends HashMap<String, Object> {
         private final LivingEntity entity;
 
@@ -484,7 +485,7 @@ public class ExpressionHelper {
     }
 
     // 解析NBT复合标签
-    private static Map<String, Object> parseNbtCompound(CompoundTag compound) {
+    public static Map<String, Object> parseNbtCompound(CompoundTag compound) {
         Map<String, Object> result = new HashMap<>();
 
         for (String key : compound.getAllKeys()) {
@@ -518,7 +519,7 @@ public class ExpressionHelper {
         }
     }
 
-    // 分离的比较运算处理方法 (增强：支持字符串比较)
+    // 分离的比较运算处理方法
     private static void processComparisonOperation(Stack<Object> valueStack, Token token) {
         if (valueStack.size() < 2) {
             throw new IllegalArgumentException("Invalid expression: insufficient values for operator " + token.value);
@@ -564,7 +565,7 @@ public class ExpressionHelper {
         return false;
     }
 
-    // 分离的逻辑运算处理方法 (增强：支持字符串逻辑)
+    // 分离的逻辑运算处理方法
     private static void processLogicalOperation(Stack<Object> valueStack, Token token) {
         if (valueStack.size() < 2) {
             throw new IllegalArgumentException("Invalid expression: insufficient values for operator " + token.value);
@@ -583,7 +584,7 @@ public class ExpressionHelper {
         valueStack.push(result);
     }
 
-    // 分离的一元逻辑运算处理方法 (增强：支持字符串逻辑)
+    // 分离的一元逻辑运算处理方法
     private static void processLogicalNot(Stack<Object> valueStack, Token token) {
         if (valueStack.isEmpty()) {
             throw new IllegalArgumentException("Invalid expression: insufficient values for unary operator " + token.value);

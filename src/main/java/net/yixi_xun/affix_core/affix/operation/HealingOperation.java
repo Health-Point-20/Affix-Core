@@ -102,7 +102,7 @@ public class HealingOperation extends BaseOperation {
      * 工厂方法，从NBT创建HealingOperation
      */
     public static HealingOperation fromNBT(CompoundTag nbt) {
-        String modeStr = getString(nbt, "Mode", "modify");
+        String modeStr = getString(nbt, "Mode", "heal");
         Mode mode = Mode.fromString(modeStr);
 
         String operationStr = getString(nbt, "Operation", "add");

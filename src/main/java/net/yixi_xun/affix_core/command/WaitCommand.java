@@ -4,6 +4,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.ParsedCommandNode;
+import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
@@ -16,7 +17,7 @@ import net.yixi_xun.affix_core.AffixCoreMod;
 
 import java.util.Collections;
 
-@Mod.EventBusSubscriber(modid = AffixCoreMod.MODID)
+@Mod.EventBusSubscriber(modid = AffixCoreMod.MOD_ID)
 public class WaitCommand {
 
 	@SubscribeEvent
@@ -63,7 +64,7 @@ public class WaitCommand {
 											}
 										});
 
-										source.sendSuccess(() -> Component.translatable("commands.wait.success"), true);
+										source.sendSuccess(() -> Component.translatable("commands.wait.success").withStyle(ChatFormatting.GRAY), true);
 									}
 
 									// 返回空集合作为副作用，阻止Brigadier继续执行

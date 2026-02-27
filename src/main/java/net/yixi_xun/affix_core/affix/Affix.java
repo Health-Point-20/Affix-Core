@@ -151,9 +151,8 @@ public class Affix {
         }
 
         // 保存槽位信息
-        if (slot != null) {
-            nbt.putString("Slot", slot.getName());
-        }
+        nbt.putString("Slot", slot.getName());
+
         if (curiosSlot != null && !curiosSlot.isAnySlot()) {
             nbt.putString("Slot", curiosSlot.getSlotName());
         }
@@ -166,27 +165,24 @@ public class Affix {
     /**
      * 检查词缀是否在非指定槽位触发
      */
-    public boolean triggerInInvalidSlot(EquipmentSlot equipmentSlot) {
-        return triggerInInvalidSlot(equipmentSlot, null);
-    }
-    
-    /**
-     * 检查词缀是否在非指定槽位触发（支持Curios槽位）
-     */
-    public boolean triggerInInvalidSlot(EquipmentSlot equipmentSlot, String curiosSlotIdentifier) {
-        // 如果是任意槽位，总是有效
-        if (curiosSlot() == null || curiosSlot().isAnySlot()) {
-            return slot() != null && slot() != equipmentSlot;
+    public boolean canTriggerInSlot(EquipmentSlot equipmentSlot, String curiosSlotIdentifier) {
+        // 如果指定了Vanilla槽位，优先检查Vanilla槽位
+        if (slot != null) {
+            return slot == equipmentSlot;
         }
-        
-        // 检查Curios槽位是否匹配
-        if (curiosSlotIdentifier != null && !curiosSlotIdentifier.isEmpty()) {
-            CuriosSlotType currentSlot = CuriosSlotType.fromString(curiosSlotIdentifier);
-            return curiosSlot() != currentSlot;
+
+        // 如果指定了Curios槽位，检查Curios槽位是否匹配
+        if (curiosSlot != null && !curiosSlot.isAnySlot()) {
+            if (curiosSlotIdentifier != null && !curiosSlotIdentifier.isEmpty()) {
+                CuriosSlotType currentSlot = CuriosSlotType.fromString(curiosSlotIdentifier);
+                return curiosSlot == currentSlot;
+            }
+            // 如果没有提供Curios槽位标识符，且指定了Curios槽位，则认为无效
+            return false;
         }
-        
-        // 回退到检查Vanilla槽位
-        return slot() != null && slot() != equipmentSlot;
+
+        // 如果没有指定任何槽位限制，则总是有效
+        return true;
     }
 
     /**

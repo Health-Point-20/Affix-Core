@@ -3,8 +3,6 @@ package net.yixi_xun.affix_core.tooltip;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
@@ -25,8 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static net.yixi_xun.affix_core.api.ExpressionHelper.parseNbtTag;
 
 /**
  * Tooltip处理器
@@ -90,47 +86,9 @@ public class TooltipHandler {
         variables.put("self", AffixContext.createEntityData(player));
         
         // 创建物品数据
-        variables.put("item", createItemData(itemStack));
+        variables.put("item", AffixContext.createItemData(itemStack));
         
         return variables;
-    }
-    
-    /**
-     * 创建物品数据映射
-     */
-    private static Map<String, Object> createItemData(ItemStack stack) {
-        Map<String, Object> itemData = new HashMap<>();
-        
-        if (stack.isEmpty()) {
-            return itemData;
-        }
-        
-        itemData.put("count", stack.getCount());
-        itemData.put("max_damage", stack.getMaxDamage());
-        itemData.put("damage", stack.getDamageValue());
-        itemData.put("name", stack.getHoverName().getString());
-        
-        // NBT数据
-        CompoundTag nbt = stack.getTag();
-        if (nbt != null) {
-            itemData.put("nbt", parseNbtCompound(nbt));
-        }
-        
-        return itemData;
-    }
-    
-    /**
-     * 解析NBT复合标签
-     */
-    private static Map<String, Object> parseNbtCompound(CompoundTag compound) {
-        Map<String, Object> result = new HashMap<>();
-        
-        for (String key : compound.getAllKeys()) {
-            Tag tag = compound.get(key);
-            result.put(key, parseNbtTag(tag));
-        }
-        
-        return result;
     }
     
     /**
@@ -299,7 +257,7 @@ public class TooltipHandler {
             return null;
         }
         
-        MutableComponent result = Component.literal("");
+        MutableComponent result = Component.empty();
         int lastEnd = 0;
         
         do {
@@ -310,14 +268,23 @@ public class TooltipHandler {
             }
             
             String colorSpec = matcher.group(1);
-            Style style = parseColorStyle(colorSpec);
             
             // 找到下一个颜色标记或文本结束
             int nextColorStart = text.indexOf("{c,", matcher.end());
             if (nextColorStart == -1) nextColorStart = text.length();
             
             String coloredText = text.substring(matcher.end(), nextColorStart);
-            result.append(Component.literal(coloredText).setStyle(style));
+            
+            // 处理不同类型的着色
+            if (colorSpec.contains(":")) {
+                // 逐字渐变: red:blue
+                MutableComponent gradientComponent = handleCharacterGradient(coloredText, colorSpec);
+                result.append(gradientComponent);
+            } else {
+                // 其他颜色类型
+                Style style = parseColorStyle(colorSpec);
+                result.append(Component.literal(coloredText).setStyle(style));
+            }
             
             lastEnd = nextColorStart;
         } while (matcher.find());
@@ -345,7 +312,10 @@ public class TooltipHandler {
         if (colorPart.contains("->")) {
             // 渐变色: red -> #FFFFFF -> #000000
             style = handleGradientColor(colorPart).withItalic(false);
-        } else if (colorPart.contains("-")) {
+        }
+        // 逐字渐变色: red:blue (第一个字红色到最后一字蓝色)
+        // 这种格式需要在处理具体文本时才能确定,此处不处理
+        else if (colorPart.contains("-")) {
             // 循环色: red-blue-yellow
             style = handleCycleColor(colorPart).withItalic(false);
         } else {
@@ -373,6 +343,41 @@ public class TooltipHandler {
         }
         
         return style;
+    }
+    
+    /**
+     * 处理逐字渐变颜色
+     * 格式: {c,red:blue} - 第一个字符红色，最后一个字符蓝色，中间平滑过渡
+     */
+    private static MutableComponent handleCharacterGradient(String text, String colorSpec) {
+        String[] colors = colorSpec.split(":");
+        if (colors.length != 2) {
+            // 格式错误，返回原文本
+            return Component.literal(text);
+        }
+        
+        Color startColor = parseColor(colors[0].trim());
+        Color endColor = parseColor(colors[1].trim());
+        
+        MutableComponent result = Component.literal("");
+        int textLength = text.length();
+        
+        // 如果文本为空或只有一个字符，直接使用起始颜色
+        if (textLength <= 1) {
+            Style style = Style.EMPTY.withColor(TextColor.fromRgb(startColor.getRGB()));
+            return Component.literal(text).setStyle(style);
+        }
+        
+        // 为每个字符计算颜色
+        for (int i = 0; i < textLength; i++) {
+            float ratio = (float) i / (textLength - 1);
+            Color charColor = interpolateColor(startColor, endColor, ratio);
+            Style charStyle = Style.EMPTY.withColor(TextColor.fromRgb(charColor.getRGB()));
+            
+            result.append(Component.literal(String.valueOf(text.charAt(i))).setStyle(charStyle.withItalic(false)));
+        }
+        
+        return result;
     }
     
     /**
@@ -405,11 +410,8 @@ public class TooltipHandler {
         Color endColor = parseColor(colors[segment + 1]);
         
         float ratio = stepInSegment / 20.0f;
-        int r = (int) (startColor.getRed() + (endColor.getRed() - startColor.getRed()) * ratio);
-        int g = (int) (startColor.getGreen() + (endColor.getGreen() - startColor.getGreen()) * ratio);
-        int b = (int) (startColor.getBlue() + (endColor.getBlue() - startColor.getBlue()) * ratio);
-        
-        return Style.EMPTY.withColor(TextColor.fromRgb(new Color(r, g, b).getRGB()));
+        Color interpolatedColor = interpolateColor(startColor, endColor, ratio);
+        return Style.EMPTY.withColor(TextColor.fromRgb(interpolatedColor.getRGB()));
     }
     
     /**
@@ -451,6 +453,20 @@ public class TooltipHandler {
             case "white" -> ChatFormatting.WHITE;
             default -> null;
         };
+    }
+    
+    /**
+     * 颜色插值计算
+     * @param startColor 起始颜色
+     * @param endColor 结束颜色
+     * @param ratio 插值比例 (0.0 到 1.0)
+     * @return 插值后的颜色
+     */
+    private static Color interpolateColor(Color startColor, Color endColor, float ratio) {
+        int r = (int) (startColor.getRed() + (endColor.getRed() - startColor.getRed()) * ratio);
+        int g = (int) (startColor.getGreen() + (endColor.getGreen() - startColor.getGreen()) * ratio);
+        int b = (int) (startColor.getBlue() + (endColor.getBlue() - startColor.getBlue()) * ratio);
+        return new Color(r, g, b);
     }
     
     /**

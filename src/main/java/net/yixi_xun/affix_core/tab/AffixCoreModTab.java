@@ -1,4 +1,4 @@
-package net.yixi_xun.affix_core.tap;
+package net.yixi_xun.affix_core.tab;
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -11,12 +11,18 @@ import net.yixi_xun.affix_core.AffixCoreMod;
 import net.yixi_xun.affix_core.items.AffixCoreModItems;
 
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
-public class AffixCoreModTap {
-    public static final DeferredRegister<CreativeModeTab> REGISTRY =
-            DeferredRegister.create(Registries.CREATIVE_MODE_TAB, AffixCoreMod.MODID);
-    public static final RegistryObject<CreativeModeTab> AFFIX_CORE_MOD_TAB = REGISTRY.register("affix_core",
+public class AffixCoreModTab {
+    public static final DeferredRegister<CreativeModeTab> TAB =
+            DeferredRegister.create(Registries.CREATIVE_MODE_TAB, AffixCoreMod.MOD_ID);
+    public static final RegistryObject<CreativeModeTab> AFFIX_CORE_MOD_TAB = TAB.register("affix_core",
             () -> CreativeModeTab.builder().title(Component.translatable("item_group.affix_core"))
                     .icon(() -> new ItemStack(AffixCoreModItems.RAFFLE_ITEM.get()))
-                    .displayItems((parameters, tab) -> tab.accept(AffixCoreModItems.RAFFLE_ITEM.get())).build()
+                    .displayItems((parameters, tab) -> {
+                        tab.accept(AffixCoreModItems.RAFFLE_ITEM.get());
+                        tab.accept(AffixCoreModItems.RAFFLE_BLOCK.get());
+                    })
+                    .build()
+
+
     );
 }

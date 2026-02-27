@@ -13,8 +13,9 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.util.thread.SidedThreadGroups;
 import net.yixi_xun.affix_core.affix.AffixManager;
+import net.yixi_xun.affix_core.block.AffixCoreModBlocks;
 import net.yixi_xun.affix_core.items.AffixCoreModItems;
-import net.yixi_xun.affix_core.tap.AffixCoreModTap;
+import net.yixi_xun.affix_core.tab.AffixCoreModTab;
 import org.slf4j.Logger;
 
 import java.util.AbstractMap;
@@ -23,10 +24,10 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-@Mod(AffixCoreMod.MODID)
+@Mod(AffixCoreMod.MOD_ID)
 public class AffixCoreMod {
 
-    public static final String MODID = "affix_core";
+    public static final String MOD_ID = "affix_core";
     public static final Logger LOGGER = LogUtils.getLogger();
 
     @SuppressWarnings("removal")
@@ -35,8 +36,10 @@ public class AffixCoreMod {
 
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
         ModLoadingContext modLoadingContext = ModLoadingContext.get();
-        AffixCoreModItems.REGISTRY.register(modEventBus);
-        AffixCoreModTap.REGISTRY.register(modEventBus);
+        AffixCoreModItems.ITEMS.register(modEventBus);
+        AffixCoreModTab.TAB.register(modEventBus);
+        AffixCoreModBlocks.BLOCKS.register(modEventBus);
+        AffixCoreModBlocks.BLOCK_ENTITIES.register(modEventBus);
         AffixManager.init();
         modLoadingContext.registerConfig(ModConfig.Type.COMMON, ACConfig.SPEC);
 
@@ -63,7 +66,7 @@ public class AffixCoreMod {
         }
     }
 
-    @Mod.EventBusSubscriber(modid = MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+    @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static class ClientModEvents {
 
         @SubscribeEvent

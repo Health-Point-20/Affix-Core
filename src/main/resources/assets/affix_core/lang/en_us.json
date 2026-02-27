@@ -1,15 +1,23 @@
 {
   "commands.wait.success": "Command execution delayed",
   "commands.repeat.success": "Command executed repeatedly",
+
   "attribute.affix_core.hit_rate":"Hit Rate",
   "attribute.affix_core.evasion": "Evasion",
   "attribute.affix_core.final_hit_rate": "Final Hit Rate",
   "attribute.affix_core.final_evasion": "Final Evasion",
+  "attribute.affix_core.ignore_invincible_time": "Ignore Invincible Time",
+  "attribute.affix_core.physical_damage_reduction": "Physical Damage Reduction",
+  "attribute.affix_core.magic_damage_reduction": "Magic Damage Reduction",
+  "attribute.affix_core.damage_reduction": "Damage Reduction",
+  "attribute.affix_core.magic_armor": "Magic Armor",
   "affix_core.hit_miss": "Your attacks are dodged by %s",
   "attribute.modifier.potency": "Potency",
+
   "item_group.affix_core": "Affix Core",
   
   "item.affix_core.raffle_item": "Raffle Item",
+  "block.affix_core.raffle_block": "Raffle Block",
   
   "tooltip.raffle.item": "Raffle Item",
   "tooltip.raffle.hold_shift": "Hold Shift for Probability Details",

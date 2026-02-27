@@ -21,6 +21,7 @@ import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.items.IItemHandler;
+import net.yixi_xun.affix_core.items.RaffleBlockItem;
 import net.yixi_xun.affix_core.items.RaffleDataManager;
 import net.yixi_xun.affix_core.items.RaffleItem;
 
@@ -255,7 +256,7 @@ public class RaffleItemCommands {
             Level level = source.getLevel();
 
             ItemStack mainHand = player.getMainHandItem();
-            if (!(mainHand.getItem() instanceof RaffleItem)) {
+            if (!(mainHand.getItem() instanceof RaffleItem || mainHand.getItem() instanceof RaffleBlockItem)) {
                 source.sendFailure(Component.translatable("command.raffle.not_raffle_item_hand"));
                 return 0;
             }

@@ -6,7 +6,7 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.config.ModConfigEvent;
 
 // Config class for the mod
-@Mod.EventBusSubscriber(modid = AffixCoreMod.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
+@Mod.EventBusSubscriber(modid = AffixCoreMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public class ACConfig {
     private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
 

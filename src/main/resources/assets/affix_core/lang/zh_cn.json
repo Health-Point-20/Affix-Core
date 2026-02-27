@@ -5,12 +5,19 @@
   "attribute.affix_core.evasion": "闪避率",
   "attribute.affix_core.final_hit_rate": "最终命中率",
   "attribute.affix_core.final_evasion": "最终闪避率",
+  "attribute.affix_core.ignore_invincible_time": "受击无敌时间削减",
+  "attribute.affix_core.physical_damage_reduction": "物理伤害减免",
+  "attribute.affix_core.magic_damage_reduction": "魔法伤害减免",
+  "attribute.affix_core.damage_reduction": "通用伤害减免",
+  "attribute.affix_core.magic_armor": "魔法护甲值",
   "affix_core.hit_miss": "你的攻击被 %s 闪避了",
   "attribute.modifier.potency": "效力",
+
   "item_group.affix_core": "词缀核心",
-  
+
   "item.affix_core.raffle_item": "抽奖物品",
-  
+  "block.affix_core.raffle_block": "抽奖方块",
+
   "tooltip.raffle.item": "抽奖物品",
   "tooltip.raffle.hold_shift": "按住Shift查看详细概率",
   "tooltip.raffle.probabilities": "概率详情:",
@@ -31,7 +38,7 @@
   "message.raffle.bind_success": "成功绑定容器至坐标 (%d, %d, %d)",
   "message.raffle.no_rewards": "没有可抽取的物品",
   "message.raffle.success": "成功抽取 %d 个物品!",
-  
+
   "command.raffle.not_raffle_item": "%s 手中持有的不是抽奖物品",
   "command.raffle.not_raffle_item_hand": "你手中持有的不是抽奖物品",
   "command.raffle.drawcount_set": "已为 %s 设置抽取次数为 %d",

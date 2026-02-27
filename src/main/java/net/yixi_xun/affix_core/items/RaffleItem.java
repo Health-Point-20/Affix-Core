@@ -3,6 +3,7 @@ package net.yixi_xun.affix_core.items;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -71,9 +72,40 @@ public class RaffleItem extends Item {
     }
     
     /**
+     * 绑定容器
+     */
+    public static InteractionResult bindContainerFromBlock(CompoundTag nbt, Player player, Level level, BlockPos containerPos) {
+        if (!(player instanceof ServerPlayer serverPlayer)) {
+            return InteractionResult.PASS;
+        }
+        
+        // 检查权限（创造模式且至少2级权限）
+        if (!serverPlayer.isCreative() || !serverPlayer.hasPermissions(2)) {
+            player.displayClientMessage(Component.translatable("message.raffle.no_permission").withStyle(ChatFormatting.RED), true);
+            return InteractionResult.FAIL;
+        }
+        
+        // 验证方块是否为有效容器
+        if (!isValidContainer(level, containerPos)) {
+            player.displayClientMessage(Component.translatable("message.raffle.not_container").withStyle(ChatFormatting.RED), true);
+            return InteractionResult.FAIL;
+        }
+        
+        // 保存容器位置到NBT
+        RaffleDataManager.setBoundContainerPos(nbt, containerPos);
+        
+        player.displayClientMessage(
+            Component.translatable("message.raffle.bind_success", 
+                containerPos.getX(), containerPos.getY(), containerPos.getZ())
+                .withStyle(ChatFormatting.GREEN), true);
+                
+        return InteractionResult.SUCCESS;
+    }
+    
+    /**
      * 绑定容器到抽奖物品
      */
-    private InteractionResult bindContainer(ItemStack stack, Player player, Level level, BlockPos containerPos) {
+    public static InteractionResult bindContainer(ItemStack stack, Player player, Level level, BlockPos containerPos) {
         if (!(player instanceof ServerPlayer serverPlayer)) {
             return InteractionResult.PASS;
         }
@@ -104,7 +136,7 @@ public class RaffleItem extends Item {
     /**
      * 验证方块是否为有效容器
      */
-    private boolean isValidContainer(Level level, BlockPos pos) {
+    private static boolean isValidContainer(Level level, BlockPos pos) {
         BlockEntity blockEntity = level.getBlockEntity(pos);
         return blockEntity != null && blockEntity.getCapability(ForgeCapabilities.ITEM_HANDLER).isPresent();
     }

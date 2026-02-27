@@ -5,6 +5,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraftforge.event.entity.player.ItemTooltipEvent;
@@ -22,6 +23,9 @@ public class AttributeTooltipHandler {
         ItemStack stack = event.getItemStack();
         List<Component> tooltips = event.getToolTip();
         TooltipFlag flag = event.getFlags();
+        Player player = event.getEntity();
+
+        if (player == null) return;
         
         // 处理所有装备槽位的属性
         for (EquipmentSlot slot : EquipmentSlot.values()) {
@@ -33,7 +37,7 @@ public class AttributeTooltipHandler {
 
                 if (AttributeFormatter.isPercentageAttribute(attribute)) {
                     removeOriginalAttributeLine(tooltips, attribute);
-                    tooltips.add(AttributeFormatter.formatAttribute(attribute, modifier, flag));
+                    tooltips.add(AttributeFormatter.formatAttribute(player, attribute, modifier, flag));
                 }
             }
         }

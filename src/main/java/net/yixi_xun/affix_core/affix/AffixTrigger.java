@@ -3,6 +3,7 @@ package net.yixi_xun.affix_core.affix;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.event.entity.item.ItemTossEvent;
@@ -19,12 +20,13 @@ import java.util.*;
 import java.util.function.Consumer;
 
 import static net.yixi_xun.affix_core.AffixCoreMod.LOGGER;
-import static net.yixi_xun.affix_core.AffixCoreMod.MODID;
+import static net.yixi_xun.affix_core.AffixCoreMod.MOD_ID;
 import static net.yixi_xun.affix_core.affix.AffixContext.createEntityData;
+import static net.yixi_xun.affix_core.affix.AffixContext.createItemData;
 import static net.yixi_xun.affix_core.affix.AffixManager.getAffixes;
 import static net.yixi_xun.affix_core.affix.AffixProcessor.handleItemRemoval;
 
-@Mod.EventBusSubscriber(modid = MODID)
+@Mod.EventBusSubscriber(modid = MOD_ID)
 public class AffixTrigger {
     /**
      * 攻击事件监听器
@@ -37,6 +39,9 @@ public class AffixTrigger {
             context.addVariable("damage_type", event.getSource().type().msgId());
             context.addVariable("target", createEntityData(target));
             context.addVariable("distance", context.getOwner().distanceTo(target));
+            if (target instanceof Player player) {
+                context.addVariable("attack_cooldown", player.getAttackStrengthScale(0.5F));
+            }
         });
         processAffixTriggerWithVars(event.getEntity(), "on_hurt", event, (context) -> {
             context.addVariable("damage", event.getAmount());
@@ -181,19 +186,12 @@ public class AffixTrigger {
     }
 
     /**
-     * 左键空处监听器
-     */
-    @SubscribeEvent
-    public static void onLeftClickEmpty(PlayerInteractEvent.LeftClickEmpty event) {
-        processAffixTrigger(event.getEntity(), "on_left_click_empty", event);
-    }
-
-    /**
      * 物品使用完成监听器
      */
     @SubscribeEvent
-    public static void onUse(LivingEntityUseItemEvent.Finish event) {
-        processAffixTrigger(event.getEntity(), "on_use_finish", event);
+    public static void onUseFinish(LivingEntityUseItemEvent.Finish event) {
+        processAffixTriggerWithVars(event.getEntity(), "on_use_finish", event, (context) ->
+                context.addVariable("item", createItemData(event.getItem())));
     }
 
     /**
@@ -201,8 +199,10 @@ public class AffixTrigger {
      */
     @SubscribeEvent
     public static void onUseTick(LivingEntityUseItemEvent.Tick event) {
-        processAffixTriggerWithVars(event.getEntity(), "on_use_tick", event, (context) ->
-                context.addVariable("duration", event.getDuration()));
+        processAffixTriggerWithVars(event.getEntity(), "on_use_tick", event, (context) -> {
+            context.addVariable("duration", event.getDuration());
+            context.addVariable("item", createItemData(event.getItem()));
+        });
     }
 
     /**
@@ -210,7 +210,8 @@ public class AffixTrigger {
      */
     @SubscribeEvent
     public static void onUseStart(LivingEntityUseItemEvent.Start event) {
-        processAffixTrigger(event.getEntity(), "on_use_start", event);
+        processAffixTriggerWithVars(event.getEntity(), "on_use_start", event, (context) ->
+                context.addVariable("item", createItemData(event.getItem())));
     }
 
     /**
@@ -219,7 +220,7 @@ public class AffixTrigger {
     @SubscribeEvent
     public static void onDrop(ItemTossEvent event) {
         processAffixTriggerWithVars(event.getEntity(), "on_drop", event, (context ->
-                context.addVariable("item.name", event.getEntity().getItem().getDescriptionId())));
+                context.addVariable("item", createItemData(event.getEntity().getItem()))));
     }
 
     /**
@@ -290,7 +291,7 @@ public class AffixTrigger {
             
             List<Affix> slotAffixes = getAffixes(stack);
             for (Affix affix : slotAffixes) {
-                if (affix != null && isTriggerMatch(affix.trigger(), triggerSet) && !affix.triggerInInvalidSlot(slot)) {
+                if (affix != null && isTriggerMatch(affix.trigger(), triggerSet) && affix.canTriggerInSlot(slot, null)) {
                     affixLocationMap.put(affix, stack);
                     validAffixes.add(affix);
                 }

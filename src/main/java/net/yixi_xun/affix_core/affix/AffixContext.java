@@ -1,5 +1,6 @@
 package net.yixi_xun.affix_core.affix;
 
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -11,9 +12,12 @@ import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.registries.ForgeRegistries;
 
+import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+
+import static net.yixi_xun.affix_core.api.ExpressionHelper.parseNbtCompound;
 
 public class AffixContext {
     private final Level world;
@@ -37,6 +41,30 @@ public class AffixContext {
         variables.put("trigger_count", affix.triggerCount());
         variables.put("time", world.getGameTime());
         variables.put("world_name", world.dimension().location().toString());
+    }
+
+    /**
+     * 创建物品数据映射
+     */
+    public static Map<String, Object> createItemData(ItemStack stack) {
+        Map<String, Object> itemData = new HashMap<>();
+
+        if (stack.isEmpty()) {
+            return itemData;
+        }
+
+        itemData.put("count", stack.getCount());
+        itemData.put("max_damage", stack.getMaxDamage());
+        itemData.put("damage", stack.getDamageValue());
+        itemData.put("name", stack.getHoverName().getString());
+
+        // NBT数据
+        CompoundTag nbt = stack.getTag();
+        if (nbt != null) {
+            itemData.put("nbt", parseNbtCompound(nbt));
+        }
+
+        return itemData;
     }
 
     // 初始化 self 变量
@@ -104,6 +132,7 @@ public class AffixContext {
     public Set<String> getTrigger() { return trigger; }
     public Event getEvent() { return event; }
 
+    @Nullable
     public LivingEntity getTarget() {
         // 事件类型检查
         if (event instanceof LivingHurtEvent hurtEvent) {

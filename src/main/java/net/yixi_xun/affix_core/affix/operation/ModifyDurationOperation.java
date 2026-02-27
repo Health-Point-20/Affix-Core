@@ -45,7 +45,6 @@ public class ModifyDurationOperation extends BaseOperation {
             return;
         }
 
-        // 移除 try-catch 块，因为 ExpressionHelper 已经处理了表达式异常
         setupDurationVariables(context, itemStack);
         
         switch (operation) {

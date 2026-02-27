@@ -219,7 +219,7 @@ Affix Core 是一个Minecraft Forge模组，提供了一套完整的词缀系统
 
 ## 🆘 帮助与支持
 
-如果您遇到问题，请在GitHub上提交Issue或访问我们的 [Bilibili页面](https://space.bilibili.com/1424582807) [QQ群](https://qm.qq.com/q/wshAOsGgSW) 获取更多信息。
+如果您遇到问题，请在GitHub上提交Issue或访问我的 [Bilibili页面](https://space.bilibili.com/1424582807) 和 [QQ群](https://qm.qq.com/q/wshAOsGgSW) 获取更多信息。
 
 ## 🔄 更新日志
 

@@ -33,7 +33,11 @@ public class RaffleDataManager {
     public static final RandomSource random = RandomSource.create();
 
     public static IItemHandler getItemHandler(ItemStack stack, Level level) {
-        BlockPos containerPos = getBoundContainerPos(stack);
+        return getItemHandler(stack.getOrCreateTag(), level);
+    }
+
+    public static IItemHandler getItemHandler(CompoundTag nbt, Level level) {
+        BlockPos containerPos = getBoundContainerPos(nbt);
 
         if (containerPos == null) return null;
 
@@ -45,26 +49,37 @@ public class RaffleDataManager {
 
     }
 
+    public static List<ItemStack> drawFromContainer(ItemStack raffleStack, Level level) {
+        CompoundTag nbt = raffleStack.getOrCreateTag();
+
+        // 检查是否需要消耗自身
+        if (getConsumeSelf(raffleStack)) {
+            raffleStack.shrink(1);
+        }
+
+        return drawFromContainer(nbt, level);
+    }
+
     /**
      * 从容器中抽取物品
      */
-    public static List<ItemStack> drawFromContainer(ItemStack raffleStack, Level level) {
+    public static List<ItemStack> drawFromContainer(CompoundTag nbt, Level level) {
         List<ItemStack> results = new ArrayList<>();
-        CompoundTag nbt = raffleStack.getOrCreateTag();
+
         
         if (!nbt.contains(TAG_CONTAINER_POS)) {
             return results; // 未绑定容器
         }
 
-        IItemHandler itemHandler = getItemHandler(raffleStack, level);
+        IItemHandler itemHandler = getItemHandler(nbt, level);
         if (itemHandler == null) {
             return results;
         }
 
-        Map<Integer, Double> probabilities = getSlotProbabilities(raffleStack, itemHandler);
-        int drawCount = getDrawCount(raffleStack);
-        boolean allowRepeat = getAllowRepeat(raffleStack);
-        boolean consumeItems = getConsumeItems(raffleStack);
+        Map<Integer, Double> probabilities = getSlotProbabilities(nbt, itemHandler);
+        int drawCount = getDrawCount(nbt);
+        boolean allowRepeat = getAllowRepeat(nbt);
+        boolean consumeItems = getConsumeItems(nbt);
         
         Set<Integer> drawnSlots = new HashSet<>();
         
@@ -79,7 +94,7 @@ public class RaffleDataManager {
                     if (consumeItems) {
                         itemHandler.extractItem(slot, itemInSlot.getCount(), false);
                         // 消耗后重新计算概率分布（避免下次抽到空槽位）
-                        probabilities = getSlotProbabilities(raffleStack, itemHandler);
+                        probabilities = getSlotProbabilities(nbt, itemHandler);
                     }
                     
                     if (!allowRepeat) {
@@ -90,21 +105,26 @@ public class RaffleDataManager {
                 }
             }
         }
-
-        // 检查是否需要消耗自身
-        if (getConsumeSelf(raffleStack) && !results.isEmpty()) {
-            raffleStack.shrink(1);
-        }
         
         return results;
     }
-    
+
+    public static List<ItemStack> drawFromItemList(ItemStack raffleStack) {
+        CompoundTag nbt = raffleStack.getOrCreateTag();
+
+        // 检查是否需要消耗自身
+        if (getConsumeSelf(raffleStack)) {
+            raffleStack.shrink(1);
+        }
+
+        return drawFromItemList(nbt);
+    }
+
     /**
      * 从内置物品列表中抽取
      */
-    public static List<ItemStack> drawFromItemList(ItemStack raffleStack) {
+    public static List<ItemStack> drawFromItemList(CompoundTag nbt) {
         List<ItemStack> results = new ArrayList<>();
-        CompoundTag nbt = raffleStack.getOrCreateTag();
         
         if (!nbt.contains(TAG_ITEMS_LIST)) {
             return results;
@@ -115,10 +135,10 @@ public class RaffleDataManager {
             return results;
         }
         
-        Map<Integer, Double> probabilities = getItemProbabilities(raffleStack, itemsList.size());
-        int drawCount = getDrawCount(raffleStack);
-        boolean allowRepeat = getAllowRepeat(raffleStack);
-        boolean consumeItems = getConsumeItems(raffleStack);
+        Map<Integer, Double> probabilities = getItemProbabilities(nbt, itemsList.size());
+        int drawCount = getDrawCount(nbt);
+        boolean allowRepeat = getAllowRepeat(nbt);
+        boolean consumeItems = getConsumeItems(nbt);
         
         Set<Integer> drawnIndices = new HashSet<>();
         List<Integer> indicesToRemove = new ArrayList<>();
@@ -155,23 +175,17 @@ public class RaffleDataManager {
             // 更新NBT中的物品列表
             nbt.put(TAG_ITEMS_LIST, itemsList);
         }
-        
-        // 检查是否需要消耗自身
-        if (getConsumeSelf(raffleStack) && !results.isEmpty()) {
-            raffleStack.shrink(1);
-        }
-        
+
         return results;
     }
-    
+
     /**
      * 获取槽位概率分布
      */
-    private static Map<Integer, Double> getSlotProbabilities(ItemStack stack, IItemHandler itemHandler) {
+    private static Map<Integer, Double> getSlotProbabilities(CompoundTag nbt, IItemHandler itemHandler) {
         Map<Integer, Double> probabilities = new HashMap<>();
-        CompoundTag nbt = stack.getTag();
 
-        if (nbt != null && nbt.contains(TAG_PROBABILITIES)) {
+        if (nbt.contains(TAG_PROBABILITIES)) {
             CompoundTag probTag = nbt.getCompound(TAG_PROBABILITIES);
             for (String key : probTag.getAllKeys()) {
                 try {
@@ -215,11 +229,10 @@ public class RaffleDataManager {
     /**
      * 获取物品列表概率分布
      */
-    private static Map<Integer, Double> getItemProbabilities(ItemStack stack, int itemCount) {
+   private static Map<Integer, Double> getItemProbabilities(CompoundTag nbt, int itemCount) {
         Map<Integer, Double> probabilities = new HashMap<>();
-        CompoundTag nbt = stack.getOrCreateTag();
         
-        if (nbt.contains(TAG_PROBABILITIES)) {
+        if (nbt != null && nbt.contains(TAG_PROBABILITIES)) {
             CompoundTag probTag = nbt.getCompound(TAG_PROBABILITIES);
             for (String key : probTag.getAllKeys()) {
                 try {
@@ -301,7 +314,10 @@ public class RaffleDataManager {
     
     // Getter和Setter方法
     public static int getDrawCount(ItemStack stack) {
-        CompoundTag nbt = stack.getTag();
+        return getDrawCount(stack.getTag());
+    }
+    
+    public static int getDrawCount(CompoundTag nbt) {
         return nbt != null ? Math.max(nbt.getInt(TAG_DRAW_COUNT), 1) : 1;
     }
     
@@ -310,7 +326,10 @@ public class RaffleDataManager {
     }
     
     public static boolean getAllowRepeat(ItemStack stack) {
-        CompoundTag nbt = stack.getTag();
+        return getAllowRepeat(stack.getTag());
+    }
+    
+    public static boolean getAllowRepeat(CompoundTag nbt) {
         return nbt == null || nbt.getBoolean(TAG_ALLOW_REPEAT);
     }
     
@@ -319,7 +338,10 @@ public class RaffleDataManager {
     }
     
     public static boolean getConsumeItems(ItemStack stack) {
-        CompoundTag nbt = stack.getTag();
+        return getConsumeItems(stack.getTag());
+    }
+    
+    public static boolean getConsumeItems(CompoundTag nbt) {
         return nbt != null && nbt.getBoolean(TAG_CONSUME_ITEMS);
     }
     
@@ -328,7 +350,10 @@ public class RaffleDataManager {
     }
     
     public static boolean getConsumeSelf(ItemStack stack) {
-        CompoundTag nbt = stack.getTag();
+        return getConsumeSelf(stack.getTag());
+    }
+    
+    public static boolean getConsumeSelf(CompoundTag nbt) {
         return nbt != null && nbt.getBoolean(TAG_CONSUME_SELF);
     }
     
@@ -375,8 +400,11 @@ public class RaffleDataManager {
      * 检查是否有有效的物品列表
      */
     public static boolean hasValidItemList(ItemStack stack) {
-        CompoundTag nbt = stack.getOrCreateTag();
-        if (!nbt.contains(TAG_ITEMS_LIST)) {
+        return hasValidItemList(stack.getTag());
+    }
+    
+    public static boolean hasValidItemList(CompoundTag nbt) {
+        if (nbt == null || !nbt.contains(TAG_ITEMS_LIST)) {
             return false;
         }
         
@@ -390,8 +418,11 @@ public class RaffleDataManager {
      * @return 容器位置，如果未绑定则返回null
      */
     public static BlockPos getBoundContainerPos(ItemStack stack) {
-        CompoundTag nbt = stack.getOrCreateTag();
-        if (!nbt.contains(TAG_CONTAINER_POS)) {
+        return getBoundContainerPos(stack.getTag());
+    }
+    
+    public static BlockPos getBoundContainerPos(CompoundTag nbt) {
+        if (nbt == null || !nbt.contains(TAG_CONTAINER_POS)) {
             return null;
         }
         
@@ -405,21 +436,28 @@ public class RaffleDataManager {
      * @param pos 容器位置
      */
     public static void setBoundContainerPos(ItemStack stack, BlockPos pos) {
+        setBoundContainerPos(stack.getOrCreateTag(), pos);
+    }
+
+    public static void setBoundContainerPos(CompoundTag nbt, BlockPos pos) {
         if (pos != null) {
-            stack.getOrCreateTag().putLong(TAG_CONTAINER_POS, pos.asLong());
+            nbt.putLong(TAG_CONTAINER_POS, pos.asLong());
         } else {
-            unbindContainer(stack);
+            unbindContainer(nbt);
         }
     }
     
     /**
      * 解绑容器
      */
-    public static void unbindContainer(ItemStack stack) {
-        CompoundTag nbt = stack.getTag();
+    public static void unbindContainer(CompoundTag nbt) {
         if (nbt != null) {
             nbt.remove(TAG_CONTAINER_POS);
         }
+    }
+
+    public static void unbindContainer(ItemStack stack) {
+        unbindContainer(stack.getTag());
     }
     
     /**

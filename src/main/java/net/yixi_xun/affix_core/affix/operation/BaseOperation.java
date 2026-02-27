@@ -26,7 +26,7 @@ public abstract class BaseOperation implements IOperation {
             return null;
         }
         
-        return switch (target.toLowerCase()) {
+       LivingEntity targetEntity = switch (target.toLowerCase()) {
             case "self","owner" -> context.getOwner();
             case "target" -> context.getTarget();
             default -> {
@@ -40,6 +40,12 @@ public abstract class BaseOperation implements IOperation {
                 yield context.getOwner();
             }
         };
+
+        if (isInValidEntity(targetEntity)) {
+            return context.getOwner();
+        }
+
+        return targetEntity;
     }
     
     /**
@@ -54,15 +60,15 @@ public abstract class BaseOperation implements IOperation {
     /**
      * 安全地计算表达式值
      * @param expression 表达式字符串
-     * @param context 上下文变量
+     * @param vars 上下文变量
      * @param defaultValue 默认值
      * @return 计算结果
      */
-    protected static double evaluateOrDefaultValue(String expression, Map<String, Object> context, double defaultValue) {
+    protected static double evaluateOrDefaultValue(String expression, Map<String, Object> vars, double defaultValue) {
         if (expression == null || expression.trim().isEmpty()) {
             return defaultValue;
         }
-        return ExpressionHelper.evaluate(expression, context);
+        return ExpressionHelper.evaluate(expression, vars);
     }
     
     /**

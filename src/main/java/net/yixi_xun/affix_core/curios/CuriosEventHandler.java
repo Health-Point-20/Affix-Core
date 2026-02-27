@@ -19,7 +19,7 @@ import java.util.Set;
 
 import static net.yixi_xun.affix_core.AffixCoreMod.LOGGER;
 
-@Mod.EventBusSubscriber(modid = AffixCoreMod.MODID)
+@Mod.EventBusSubscriber(modid = AffixCoreMod.MOD_ID)
 public class CuriosEventHandler {
 
     /**
@@ -79,7 +79,7 @@ public class CuriosEventHandler {
 
             // 使用 AffixProcessor 统一检查逻辑
             if (!AffixProcessor.isTriggerMatch(affix.trigger(), triggerSet)) continue;
-            if (affix.triggerInInvalidSlot(null, slotIdentifier)) continue;
+            if (!affix.canTriggerInSlot(null, slotIdentifier)) continue;
 
             // 复用 AffixProcessor 的处理逻辑，传入 slot 变量
             AffixProcessor.processSingleAffix(entity, affix, itemStack, trigger, null,
