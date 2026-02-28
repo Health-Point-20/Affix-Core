@@ -106,7 +106,7 @@ public class AffixCommands {
                                 affix.operation() != null ? affix.operation().getType() : "无",
                                 affix.condition() != null ? affix.condition() : "无",
                                 affix.cooldown(),
-                                affix.slot() != null ? affix.slot().getName() : "任意")
+                                affix.slot() != null ? affix.slot() : "任意")
                 ), true);
             }
         }
@@ -226,7 +226,7 @@ public class AffixCommands {
             }
 
             // 创建一个默认的词缀对象，包含默认操作
-            Affix defaultAffix = new Affix(UUID.randomUUID() ,"on_attack", "", operation, 0L, 0, null, null, 0);
+            Affix defaultAffix = new Affix(UUID.randomUUID() ,"on_attack", "", operation, 0L, 0, null, 0);
 
             // 将词缀转换回NBT格式以获取完整的默认NBT结构
             CompoundTag affixNbt = defaultAffix.toNBT();

@@ -342,7 +342,7 @@ public class ExpressionHelper {
     }
 
     // 解析带点的变量路径，如 self.effect.minecraft:speed.duration
-    private static Object resolveVariablePath(String varPath, Map<String, ?> variables) {
+    public static Object resolveVariablePath(String varPath, Map<String, ?> variables) {
         if (variables.containsKey(varPath)) {
             return variables.get(varPath);
         }

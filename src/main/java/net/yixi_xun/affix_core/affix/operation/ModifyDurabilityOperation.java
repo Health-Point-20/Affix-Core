@@ -7,14 +7,14 @@ import net.yixi_xun.affix_core.affix.AffixContext;
 /**
  * 修改耐久度操作，用于修改物品的当前耐久度或最大耐久度
  */
-public class ModifyDurationOperation extends BaseOperation {
+public class ModifyDurabilityOperation extends BaseOperation {
 
     private final String amountExpression;
     private final OperationType operation;
 
     public enum OperationType {
-        DURATION("duration"),
-        MAX_DURATION("max_duration");
+        DURATION("durability"),
+        MAX_DURATION("max_durability");
         
         private final String name;
         OperationType(String name) { this.name = name; }
@@ -29,8 +29,8 @@ public class ModifyDurationOperation extends BaseOperation {
         }
     }
 
-    public ModifyDurationOperation(String amountExpression, String operation) {
-        this.amountExpression = amountExpression != null ? amountExpression : "duration";
+    public ModifyDurabilityOperation(String amountExpression, String operation) {
+        this.amountExpression = amountExpression != null ? amountExpression : "durability";
         this.operation = OperationType.fromString(operation);
     }
 
@@ -64,11 +64,11 @@ public class ModifyDurationOperation extends BaseOperation {
      */
     private void setupDurationVariables(AffixContext context, ItemStack itemStack) {
         int currentDurability = itemStack.getMaxDamage() - itemStack.getDamageValue();
-        context.addVariable("duration", currentDurability);
+        context.addVariable("durability", currentDurability);
         
         int maxDurability = itemStack.getOrCreateTag().contains("Affix_Durability") ? 
             itemStack.getOrCreateTag().getInt("Affix_Durability") : itemStack.getMaxDamage();
-        context.addVariable("max_duration", maxDurability);
+        context.addVariable("max_durability", maxDurability);
     }
 
     @Override
@@ -92,23 +92,23 @@ public class ModifyDurationOperation extends BaseOperation {
 
     @Override
     public String getType() {
-        return "modify_duration";
+        return "modify_durability";
     }
 
     /**
      * 工厂方法，从NBT创建ModifyDurationOperation
      */
-    public static ModifyDurationOperation fromNBT(CompoundTag nbt) {
-        String amountExpression = nbt.contains("AmountExpression") ? nbt.getString("AmountExpression") : "duration";
-        String operation = nbt.contains("Operation") ? nbt.getString("Operation") : "duration";
+    public static ModifyDurabilityOperation fromNBT(CompoundTag nbt) {
+        String amountExpression = nbt.contains("AmountExpression") ? nbt.getString("AmountExpression") : "durability";
+        String operation = nbt.contains("Operation") ? nbt.getString("Operation") : "durability";
 
-        return new ModifyDurationOperation(amountExpression, operation);
+        return new ModifyDurabilityOperation(amountExpression, operation);
     }
 
     /**
      * 注册操作工厂
      */
     public static void register() {
-        OperationManager.registerFactory("modify_duration", ModifyDurationOperation::fromNBT);
+        OperationManager.registerFactory("modify_durability", ModifyDurabilityOperation::fromNBT);
     }
 }

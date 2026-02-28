@@ -1,49 +1,27 @@
 package net.yixi_xun.affix_core.affix;
 
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NumericTag;
-import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.nbt.Tag;
 import net.minecraftforge.common.MinecraftForge;
 import net.yixi_xun.affix_core.affix.operation.IOperation;
 import net.yixi_xun.affix_core.affix.operation.OperationManager;
 import net.yixi_xun.affix_core.api.AffixEvent.AffixExecuteEvent;
 import net.yixi_xun.affix_core.api.AffixEvent.AffixRemoveEvent;
-import net.yixi_xun.affix_core.curios.CuriosSlotType;
 
 import java.util.UUID;
 
 import static net.yixi_xun.affix_core.AffixCoreMod.LOGGER;
+import static net.yixi_xun.affix_core.affix.AffixManager.AFFIX_TAG_KEY;
 import static net.yixi_xun.affix_core.api.ExpressionHelper.evaluateCondition;
 
 /**
  * 表示一个词缀，包含触发器、条件、操作、冷却时间和槽位限制等信息
  */
-public class Affix {
-    private final UUID uuid;
-    private final String trigger;
-    private final String condition;
-    private final IOperation operation;
-    private final Long cooldown;
-    private int triggerCount;
-    private final EquipmentSlot slot;
-    private final CuriosSlotType curiosSlot;
-    private final long priority;
-
+public record Affix(UUID uuid, String trigger, String condition, IOperation operation, Long cooldown, int triggerCount,
+                    String slot, long priority) {
     /**
      * 从物品NBT中读取词缀信息
      */
-    public Affix(UUID uuid, String trigger, String condition, IOperation operation, Long cooldown, int triggerCount, EquipmentSlot slot, CuriosSlotType curiosSlot, long priority) {
-        this.uuid = uuid;
-        this.trigger = trigger;
-        this.condition = condition;
-        this.operation = operation;
-        this.cooldown = cooldown;
-        this.triggerCount = triggerCount;
-        this.slot = slot;
-        this.curiosSlot = curiosSlot;
-        this.priority = priority;
-    }
-
     public static Affix fromNBT(CompoundTag nbt) {
         UUID uuid = nbt.contains("UUID") ? UUID.fromString(nbt.getString("UUID")) : UUID.randomUUID();
         // 读取触发器，默认为空
@@ -57,7 +35,6 @@ public class Affix {
         if (nbt.contains("Operation")) {
             CompoundTag operationTag = nbt.getCompound("Operation");
             operation = OperationManager.createOperation(operationTag);
-            // 如果OperationManager无法创建操作，抛出异常
             if (operation == null) {
                 LOGGER.warn("Invalid operation in Affix NBT");
                 return null;
@@ -73,54 +50,14 @@ public class Affix {
         // 读取触发次数，默认为0
         int triggerCount = nbt.contains("TriggerCount") ? nbt.getInt("TriggerCount") : 0;
 
-        // 读取槽位限制，默认为null（任意槽位）
-        EquipmentSlot slot = null; // 默认值为任意槽位
-        CuriosSlotType curiosSlot = CuriosSlotType.ANY; // 默认值为任意槽位
-        
-        if (nbt.contains("Slot")) {
-            if (nbt.getString("Slot") instanceof String) {
-                String slotName = nbt.getString("Slot");
-                // 首先尝试解析为Curios槽位
-                curiosSlot = CuriosSlotType.fromString(slotName);
-                
-                // 如果不是Curios槽位，尝试解析为Vanilla槽位
-                if (curiosSlot == CuriosSlotType.ANY) {
-                    try {
-                        slot = EquipmentSlot.byName(slotName.toLowerCase());
-                    } catch (IllegalArgumentException ignored) {
-                        // 如果无效槽位名，使用默认值
-                    }
-                }
-            } else if (nbt.get("Slot") instanceof NumericTag) {
-                // 如果是数字，尝试转换为EquipmentSlot
-                int slotIndex = nbt.getInt("Slot");
-                EquipmentSlot[] slots = EquipmentSlot.values();
-                if (slotIndex >= 0 && slotIndex < slots.length) {
-                    slot = slots[slotIndex];
-                    curiosSlot = CuriosSlotType.fromEquipmentSlot(slot);
-                } else {
-                    slot = null; // 如果索引超出范围，使用默认值
-                    curiosSlot = CuriosSlotType.ANY;
-                }
-            }
-        }
+        // 读取槽位限制，默认为""（任意槽位）
+        String slot = nbt.contains("Slot") ? nbt.getString("Slot").toLowerCase() : "";
 
         // 读取优先级
         long priority = nbt.contains("Priority") ? nbt.getLong("Priority") : 0L;
 
-        return new Affix(uuid, trigger, condition, operation, cooldown, triggerCount, slot, curiosSlot, priority);
+        return new Affix(uuid, trigger, condition, operation, cooldown, triggerCount, slot, priority);
     }
-
-    // Getter方法
-    public UUID uuid() { return uuid; }
-    public String trigger() { return trigger; }
-    public String condition() { return condition; }
-    public IOperation operation() { return operation; }
-    public Long cooldown() { return cooldown; }
-    public int triggerCount() { return triggerCount; }
-    public EquipmentSlot slot() { return slot; }
-    public CuriosSlotType curiosSlot() { return curiosSlot; }
-    public long priority() { return priority; }
 
     /**
      * 将词缀保存到物品NBT中
@@ -151,11 +88,7 @@ public class Affix {
         }
 
         // 保存槽位信息
-        nbt.putString("Slot", slot.getName());
-
-        if (curiosSlot != null && !curiosSlot.isAnySlot()) {
-            nbt.putString("Slot", curiosSlot.getSlotName());
-        }
+        nbt.putString("Slot", slot == null ? "" : slot);
 
         nbt.putLong("Priority", priority);
 
@@ -165,24 +98,14 @@ public class Affix {
     /**
      * 检查词缀是否在非指定槽位触发
      */
-    public boolean canTriggerInSlot(EquipmentSlot equipmentSlot, String curiosSlotIdentifier) {
-        // 如果指定了Vanilla槽位，优先检查Vanilla槽位
-        if (slot != null) {
-            return slot == equipmentSlot;
+    public boolean canTriggerInSlot(String triggerSlot) {
+        if (slot.isEmpty()) return true;
+
+        if (!triggerSlot.isEmpty()) {
+            return slot.equals(triggerSlot);
         }
 
-        // 如果指定了Curios槽位，检查Curios槽位是否匹配
-        if (curiosSlot != null && !curiosSlot.isAnySlot()) {
-            if (curiosSlotIdentifier != null && !curiosSlotIdentifier.isEmpty()) {
-                CuriosSlotType currentSlot = CuriosSlotType.fromString(curiosSlotIdentifier);
-                return curiosSlot == currentSlot;
-            }
-            // 如果没有提供Curios槽位标识符，且指定了Curios槽位，则认为无效
-            return false;
-        }
-
-        // 如果没有指定任何槽位限制，则总是有效
-        return true;
+        return false;
     }
 
     /**
@@ -212,7 +135,11 @@ public class Affix {
             if (executeEvent.isCanceled()) return;
 
             operation.apply(context);
-            this.triggerCount++;
+
+            // 更新词缀触发次数
+            context.getItemStack().getOrCreateTag().getList(AFFIX_TAG_KEY, Tag.TAG_COMPOUND)
+                    .stream().filter(tag -> tag instanceof CompoundTag compoundTag && compoundTag.getString("UUID").equals(uuid.toString()))
+                    .findFirst().ifPresent(tag -> ((CompoundTag)tag).putInt("TriggerCount", triggerCount + 1));
         }
     }
 

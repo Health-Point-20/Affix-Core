@@ -17,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class AffixManager {
 
-    private static final String AFFIX_TAG_KEY = "Affixes";
+    public static final String AFFIX_TAG_KEY = "Affixes";
     private static final String ITEM_UUID_NBT_KEY = "AffixItemUUID";
     
     // 使用物品的唯一ID作为Key
@@ -40,7 +40,7 @@ public class AffixManager {
         NBTOperation.register();
         CancelEventOperation.register();
         CommandOperation.register();
-        ModifyDurationOperation.register();
+        ModifyDurabilityOperation.register();
         HealthOperation.register();
         CustomMessageOperation.register();
         DisableAffixesOperation.register();

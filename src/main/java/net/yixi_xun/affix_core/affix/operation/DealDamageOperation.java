@@ -64,7 +64,7 @@ public class DealDamageOperation extends BaseOperation {
         }
 
         ResourceKey<DamageType> type = getDamageTypeKey(damageTypeId);
-        DamageSource source = createDamageSource(context, target, attacker, type);
+        DamageSource source = createDamageSource(context, attacker, type);
         float finalAmount = (float) evaluateOrDefaultValue(amountExpression, context.getVariables(), 1.0);
 
         // 应用主目标伤害
@@ -91,12 +91,12 @@ public class DealDamageOperation extends BaseOperation {
     /**
      * 创建伤害源
      */
-    private DamageSource createDamageSource(AffixContext context, LivingEntity target, 
+    private DamageSource createDamageSource(AffixContext context,
                                           LivingEntity attacker, ResourceKey<DamageType> type) {
         if (context.getEvent() instanceof LivingHurtEvent event && "damage_type".equals(damageTypeId)) {
             return event.getSource();
         } else {
-            return new DamageSource(target.level().registryAccess()
+            return new DamageSource(attacker.level().registryAccess()
                     .registryOrThrow(Registries.DAMAGE_TYPE)
                     .getHolderOrThrow(type),
                     attacker);

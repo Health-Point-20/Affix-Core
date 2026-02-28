@@ -5,6 +5,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.entity.Entity;
 import net.yixi_xun.affix_core.affix.AffixContext;
+import net.yixi_xun.affix_core.api.ExpressionHelper;
 
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -78,28 +79,25 @@ public class CommandOperation extends BaseOperation {
 
     /**
      * 替换命令字符串中的变量占位符
-     * 支持 ${variableName} 或 {variableName} 格式的变量
+     * 支持 {variableName} 格式的变量
      */
     private String replaceVariables(String command, Map<String, Object> variables) {
-        // 使用正则表达式匹配 ${variableName} 或 {variableName} 格式的变量
-        Pattern pattern = Pattern.compile("\\$?\\{([^}]+)}");
+        // 使用正则表达式匹配 {variableName} 格式的变量
+        Pattern pattern = Pattern.compile("\\{([^}]+)}");
         Matcher matcher = pattern.matcher(command);
         StringBuilder buffer = new StringBuilder();
 
         while (matcher.find()) {
             String variableName = matcher.group(1);
-            Object value = variables.get(variableName);
+            Object value = ExpressionHelper.resolveVariablePath(variableName, variables);
             
             // 如果变量存在于上下文中，则替换它
             if (value != null) {
                 // 对于非数值类型，可能需要特别处理
                 String replacement = value.toString();
                 
-                // 如果是字符串类型，且包含特殊字符，可能需要转义
-                if (value instanceof String) {
-                    // 转义反斜杠和美元符号，防止进一步的正则替换
-                    replacement = replacement.replace("\\", "\\\\").replace("$", "\\$");
-                }
+                // 转义特殊字符，防止Matcher.appendReplacement将它们解释为组引用
+                replacement = replacement.replace("\\", "\\\\"); // 转义反斜杠
                 
                 matcher.appendReplacement(buffer, replacement);
             } else {

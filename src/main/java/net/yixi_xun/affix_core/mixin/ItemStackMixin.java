@@ -50,4 +50,14 @@ public abstract class ItemStackMixin {
             cir.setReturnValue(finalComponent);
         }
     }
+
+    @Inject(
+            method = "getBarWidth()I",
+            at = @At("RETURN"),
+            cancellable = true
+    )
+    private void injectRarityBarWidth(CallbackInfoReturnable<Integer> cir) {
+        ItemStack stack = (ItemStack) (Object) this;
+        cir.setReturnValue(Math.round(13.0F - (float)stack.getDamageValue() * 13.0F / (float)stack.getMaxDamage()));
+    }
 }
