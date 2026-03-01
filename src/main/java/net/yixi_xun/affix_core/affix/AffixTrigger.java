@@ -220,7 +220,7 @@ public class AffixTrigger {
      */
     @SubscribeEvent
     public static void onUseFinish(LivingEntityUseItemEvent.Finish event) {
-        processAffixTriggerWithVars(event.getEntity(), "on_use_finish", event, (context) ->
+        processSingleItemAffix(event.getEntity(), "", event.getItem(), "on_use_finish", event, (context) ->
                 context.addVariable("item", createItemData(event.getItem())));
     }
 

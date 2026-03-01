@@ -226,18 +226,12 @@ public class AffixCommands {
             }
 
             // 创建一个默认的词缀对象，包含默认操作
-            Affix defaultAffix = new Affix(UUID.randomUUID() ,"on_attack", "", operation, 0L, 0, null, 0);
-
-            // 将词缀转换回NBT格式以获取完整的默认NBT结构
-            CompoundTag affixNbt = defaultAffix.toNBT();
-
-            String nbtString = affixNbt.toString();
+            Affix defaultAffix = new Affix(UUID.randomUUID() ,"on_attack", "", operation, 0L, -1, null, 0);
 
             // 直接将词缀添加到物品上
             AffixManager.addAffix(itemStack, defaultAffix);
 
             context.getSource().sendSuccess(() -> Component.literal("已将操作类型为 '" + operationType + "' 的样板词缀添加到物品上"), true);
-            context.getSource().sendSuccess(() -> Component.literal("词缀NBT: " + nbtString), true);
 
             return 1;
         } catch (Exception e) {

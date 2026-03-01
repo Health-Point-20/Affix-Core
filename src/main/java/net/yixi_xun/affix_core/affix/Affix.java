@@ -25,7 +25,7 @@ public record Affix(UUID uuid, String trigger, String condition, IOperation oper
     public static Affix fromNBT(CompoundTag nbt) {
         UUID uuid = nbt.contains("UUID") ? UUID.fromString(nbt.getString("UUID")) : UUID.randomUUID();
         // 读取触发器，默认为空
-        String trigger = nbt.contains("Trigger") ? nbt.getString("Trigger") : "";
+        String trigger = nbt.contains("Trigger") ? nbt.getString("Trigger") : "on_attack";
 
         // 读取条件，默认为空字符串（视为true）
         String condition = nbt.contains("Condition") ? nbt.getString("Condition") : "";
@@ -48,7 +48,7 @@ public record Affix(UUID uuid, String trigger, String condition, IOperation oper
         Long cooldown = nbt.contains("Cooldown") ? nbt.getLong("Cooldown") : 0L;
 
         // 读取触发次数，默认为0
-        int triggerCount = nbt.contains("TriggerCount") ? nbt.getInt("TriggerCount") : 0;
+        int triggerCount = nbt.contains("TriggerCount") ? nbt.getInt("TriggerCount") : -1;
 
         // 读取槽位限制，默认为""（任意槽位）
         String slot = nbt.contains("Slot") ? nbt.getString("Slot").toLowerCase() : "";
@@ -83,9 +83,7 @@ public record Affix(UUID uuid, String trigger, String condition, IOperation oper
             nbt.putLong("Cooldown", cooldown);
         }
 
-        if (triggerCount >= 0) {
-            nbt.putInt("TriggerCount", triggerCount);
-        }
+        nbt.putInt("TriggerCount", triggerCount);
 
         // 保存槽位信息
         nbt.putString("Slot", slot == null ? "" : slot);
@@ -99,13 +97,9 @@ public record Affix(UUID uuid, String trigger, String condition, IOperation oper
      * 检查词缀是否在非指定槽位触发
      */
     public boolean canTriggerInSlot(String triggerSlot) {
-        if (slot.isEmpty()) return true;
+        if (slot.isEmpty() || triggerSlot.isEmpty()) return true;
 
-        if (!triggerSlot.isEmpty()) {
-            return slot.equals(triggerSlot);
-        }
-
-        return false;
+        return slot.equals(triggerSlot);
     }
 
     /**
@@ -137,9 +131,12 @@ public record Affix(UUID uuid, String trigger, String condition, IOperation oper
             operation.apply(context);
 
             // 更新词缀触发次数
-            context.getItemStack().getOrCreateTag().getList(AFFIX_TAG_KEY, Tag.TAG_COMPOUND)
-                    .stream().filter(tag -> tag instanceof CompoundTag compoundTag && compoundTag.getString("UUID").equals(uuid.toString()))
-                    .findFirst().ifPresent(tag -> ((CompoundTag)tag).putInt("TriggerCount", triggerCount + 1));
+            if (triggerCount >= 0) {
+                context.getItemStack().getOrCreateTag().getList(AFFIX_TAG_KEY, Tag.TAG_COMPOUND)
+                        .stream().filter(tag -> tag instanceof CompoundTag compoundTag && compoundTag.getString("UUID").equals(uuid.toString()))
+                        .findFirst().ifPresent(tag -> ((CompoundTag)tag).putInt("TriggerCount", triggerCount + 1));
+
+            }
         }
     }
 

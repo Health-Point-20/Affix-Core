@@ -1,5 +1,7 @@
 package net.yixi_xun.affix_core.affix.operation;
 
+import net.minecraft.core.Holder;
+import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
@@ -15,6 +17,7 @@ import net.yixi_xun.affix_core.affix.AffixContext;
 import java.util.Comparator;
 import java.util.List;
 
+import static net.yixi_xun.affix_core.AffixCoreMod.LOGGER;
 import static net.yixi_xun.affix_core.api.ExpressionHelper.evaluate;
 import static net.yixi_xun.affix_core.api.HurtManager.extraHurt;
 
@@ -65,6 +68,13 @@ public class DealDamageOperation extends BaseOperation {
 
         ResourceKey<DamageType> type = getDamageTypeKey(damageTypeId);
         DamageSource source = createDamageSource(context, attacker, type);
+
+        if (source == null) {
+            LOGGER.error("无法根据{}创建伤害源", damageTypeId);
+            return;
+        }
+
+
         float finalAmount = (float) evaluateOrDefaultValue(amountExpression, context.getVariables(), 1.0);
 
         // 应用主目标伤害
@@ -96,10 +106,17 @@ public class DealDamageOperation extends BaseOperation {
         if (context.getEvent() instanceof LivingHurtEvent event && "damage_type".equals(damageTypeId)) {
             return event.getSource();
         } else {
-            return new DamageSource(attacker.level().registryAccess()
-                    .registryOrThrow(Registries.DAMAGE_TYPE)
-                    .getHolderOrThrow(type),
-                    attacker);
+            try {
+                Registry<DamageType> damageTypes = context.getWorld().registryAccess().registryOrThrow(Registries.DAMAGE_TYPE);
+                Holder<DamageType> typeHolder = damageTypes.getHolderOrThrow(type);
+                if (attacker == null) {
+                    return new DamageSource(typeHolder);
+                }
+                return new DamageSource(typeHolder, attacker);
+            } catch (IllegalStateException e) {
+                LOGGER.error("无法获取伤害类型", e);
+            }
+            return null;
         }
     }
 
@@ -140,7 +157,7 @@ public class DealDamageOperation extends BaseOperation {
      */
     public static DealDamageOperation fromNBT(CompoundTag nbt) {
         String amountExpression = getString(nbt, "AmountExpression", "1");
-        String damageTypeId = getString(nbt, "DamageTypeId", "minecraft:magic");
+        String damageTypeId = getString(nbt, "DamageTypeId", "minecraft:player_attack");
         String target = getString(nbt, "Target", "target");
         String isExtraDamage = getString(nbt, "IsExtraDamage", "true");
         String sourceEntity = getString(nbt, "SourceEntity", "");
@@ -199,7 +216,7 @@ private void applyAreaDamage(AffixContext context, LivingEntity centerEntity, Da
      */
     private static ResourceKey<DamageType> getDamageTypeKey(String damageTypeId) {
         if (damageTypeId.isEmpty()) {
-            return DamageTypes.MAGIC;
+            return DamageTypes.GENERIC;
         }
         // 尝试解析为ResourceLocation
         ResourceLocation location = ResourceLocation.tryParse(damageTypeId);
@@ -207,8 +224,8 @@ private void applyAreaDamage(AffixContext context, LivingEntity centerEntity, Da
             return ResourceKey.create(Registries.DAMAGE_TYPE, location);
         }
         
-        // 如果解析失败，使用默认的magic伤害
-        return DamageTypes.MAGIC;
+        // 如果解析失败，使用默认的generic伤害
+        return DamageTypes.GENERIC;
     }
 
     /**

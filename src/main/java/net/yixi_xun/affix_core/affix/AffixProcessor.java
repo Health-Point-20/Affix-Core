@@ -1,6 +1,5 @@
 package net.yixi_xun.affix_core.affix;
 
-import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
@@ -220,7 +219,6 @@ public class AffixProcessor {
             ItemStack foundStack = affixLocationMap.get(affix);
             if (foundStack == null) continue;
 
-            living.sendSystemMessage(Component.literal(foundStack.getHoverName().getString() + "触发" + trigger));
             processSingleAffix(living, affix, foundStack, trigger, event, eventVarSetter);
         }
     }

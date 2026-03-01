@@ -3,6 +3,7 @@ package net.yixi_xun.affix_core.mixin;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -58,6 +59,22 @@ public abstract class ItemStackMixin {
     )
     private void injectRarityBarWidth(CallbackInfoReturnable<Integer> cir) {
         ItemStack stack = (ItemStack) (Object) this;
-        cir.setReturnValue(Math.round(13.0F - (float)stack.getDamageValue() * 13.0F / (float)stack.getMaxDamage()));
+        if (stack.getTag() != null && stack.getTag().contains("Affix_Durability")) {
+            cir.setReturnValue(Math.round(13.0F - (float) stack.getDamageValue() * 13.0F / (float) stack.getMaxDamage()));
+        }
+    }
+
+    @Inject(
+            method = "getBarColor()I",
+            at = @At("RETURN"),
+            cancellable = true
+    )
+    private void injectRarityBarColor(CallbackInfoReturnable<Integer> cir) {
+        ItemStack stack = (ItemStack) (Object) this;
+        if (stack.getTag() != null && stack.getTag().contains("Affix_Durability")) {
+            float stackMaxDamage = stack.getMaxDamage();
+            float f = Math.max(0.0F, (stackMaxDamage - (float)stack.getDamageValue()) / stackMaxDamage);
+            cir.setReturnValue(Mth.hsvToRgb(f / 3.0F, 1.0F, 1.0F));
+        }
     }
 }
