@@ -1,19 +1,21 @@
 package net.yixi_xun.affix_core.block;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
-import net.yixi_xun.affix_core.items.RaffleDataManager;
+import net.yixi_xun.affix_core.api.RaffleDataManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -53,9 +55,15 @@ public class RaffleBlock extends BaseEntityBlock {
 
             // 生成物品
             for (ItemStack reward : rewards) {
-                Vec3 itemPos = pos.getCenter();
-                ItemEntity rewardEntity = new ItemEntity(level, itemPos.x, itemPos.y, itemPos.z, reward);
-                level.addFreshEntity(rewardEntity);
+                if (reward.getItem() == Items.PAPER && reward.hasCustomHoverName() && level.getServer() != null) {
+                    String command = reward.getHoverName().getString();
+                    CommandSourceStack sourceStack = level.getServer().createCommandSourceStack().withPosition(pos.getCenter()).withEntity(player);
+                    level.getServer().getCommands().performPrefixedCommand(sourceStack, command);
+                } else {
+                    Vec3 itemPos = pos.getCenter();
+                    ItemEntity rewardEntity = new ItemEntity(level, itemPos.x, itemPos.y, itemPos.z, reward);
+                    level.addFreshEntity(rewardEntity);
+                }
             }
         }
     }

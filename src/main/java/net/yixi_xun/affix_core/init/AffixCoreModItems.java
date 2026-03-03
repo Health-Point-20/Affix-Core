@@ -2,13 +2,15 @@
 /*
  *    MCreator note: This file will be REGENERATED on each build.
  */
-package net.yixi_xun.affix_core.items;
+package net.yixi_xun.affix_core.init;
 
 import net.minecraft.world.item.Item;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 import net.yixi_xun.affix_core.AffixCoreMod;
+import net.yixi_xun.affix_core.items.RaffleBlockItem;
+import net.yixi_xun.affix_core.items.RaffleItem;
 
 public class AffixCoreModItems {
 	public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, AffixCoreMod.MOD_ID);

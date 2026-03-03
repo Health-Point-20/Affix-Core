@@ -84,7 +84,10 @@ public class PotionOperation extends BaseOperation {
                 return Math.min(finalAmplifier, maxAmplifier);
             }
         }
-        
+
+        if (maxAmplifierExpression.equals("-1")) {
+            return baseAmplifier;
+        }
         return Math.min(baseAmplifier, maxAmplifier);
     }
 
@@ -101,6 +104,9 @@ public class PotionOperation extends BaseOperation {
             }
         }
 
+        if (maxDurationExpression.equals("-1")) {
+            return baseDuration;
+        }
         return Math.min(baseDuration, maxDuration);
     }
 
@@ -144,8 +150,8 @@ public class PotionOperation extends BaseOperation {
         boolean showParticles = !nbt.contains("ShowParticles") || nbt.getBoolean("ShowParticles");
         boolean showIcon = !nbt.contains("ShowIcon") || nbt.getBoolean("ShowIcon");
         boolean overlayEffect = nbt.contains("OverlayEffect") && nbt.getBoolean("OverlayEffect");
-        String maxAmplifierExpression = nbt.contains("MaxAmplifierExpression") ? nbt.getString("MaxAmplifierExpression") : "4";
-        String maxDurationExpression = nbt.contains("MaxDurationExpression") ? nbt.getString("MaxDurationExpression") : "3600";
+        String maxAmplifierExpression = nbt.contains("MaxAmplifierExpression") ? nbt.getString("MaxAmplifierExpression") : "-1";
+        String maxDurationExpression = nbt.contains("MaxDurationExpression") ? nbt.getString("MaxDurationExpression") : "-1";
         String target = nbt.contains("Target") ? nbt.getString("Target") : "target";
 
         return new PotionOperation(effectId, durationExpression, amplifierExpression, maxAmplifierExpression, maxDurationExpression, ambient, showParticles, showIcon, overlayEffect, target);

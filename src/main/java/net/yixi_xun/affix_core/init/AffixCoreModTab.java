@@ -1,4 +1,4 @@
-package net.yixi_xun.affix_core.tab;
+package net.yixi_xun.affix_core.init;
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -8,7 +8,6 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.RegistryObject;
 import net.yixi_xun.affix_core.AffixCoreMod;
-import net.yixi_xun.affix_core.items.AffixCoreModItems;
 
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
 public class AffixCoreModTab {

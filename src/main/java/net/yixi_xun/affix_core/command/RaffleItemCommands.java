@@ -21,8 +21,8 @@ import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.items.IItemHandler;
+import net.yixi_xun.affix_core.api.RaffleDataManager;
 import net.yixi_xun.affix_core.items.RaffleBlockItem;
-import net.yixi_xun.affix_core.items.RaffleDataManager;
 import net.yixi_xun.affix_core.items.RaffleItem;
 
 import java.util.ArrayList;

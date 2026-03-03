@@ -1,4 +1,4 @@
-package net.yixi_xun.affix_core.items;
+package net.yixi_xun.affix_core.api;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -12,6 +12,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.items.IItemHandler;
+import net.yixi_xun.affix_core.items.RaffleItem;
 
 import java.util.*;
 

@@ -13,9 +13,9 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.util.thread.SidedThreadGroups;
 import net.yixi_xun.affix_core.affix.AffixManager;
-import net.yixi_xun.affix_core.block.AffixCoreModBlocks;
-import net.yixi_xun.affix_core.items.AffixCoreModItems;
-import net.yixi_xun.affix_core.tab.AffixCoreModTab;
+import net.yixi_xun.affix_core.init.AffixCoreModBlocks;
+import net.yixi_xun.affix_core.init.AffixCoreModItems;
+import net.yixi_xun.affix_core.init.AffixCoreModTab;
 import org.slf4j.Logger;
 
 import java.util.AbstractMap;

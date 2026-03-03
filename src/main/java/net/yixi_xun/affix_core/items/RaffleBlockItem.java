@@ -14,8 +14,9 @@ import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.yixi_xun.affix_core.block.AffixCoreModBlocks;
+import net.yixi_xun.affix_core.api.RaffleDataManager;
 import net.yixi_xun.affix_core.block.RaffleBlockEntity;
+import net.yixi_xun.affix_core.init.AffixCoreModBlocks;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;

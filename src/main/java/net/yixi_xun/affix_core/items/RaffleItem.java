@@ -18,6 +18,7 @@ import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.yixi_xun.affix_core.api.RaffleDataManager;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
