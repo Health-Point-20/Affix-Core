@@ -8,10 +8,12 @@ import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.event.RegisterCommandsEvent;
@@ -19,6 +21,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.yixi_xun.affix_core.affix.Affix;
 import net.yixi_xun.affix_core.affix.AffixManager;
+import net.yixi_xun.affix_core.affix.operation.EntityVariableOperation;
 import net.yixi_xun.affix_core.affix.operation.IOperation;
 import net.yixi_xun.affix_core.affix.operation.OperationManager;
 import net.yixi_xun.affix_core.api.AffixEvent;
@@ -73,6 +76,9 @@ public class AffixCommands {
                                 .executes(AffixCommands::refreshAffixes))
                         .then(Commands.literal("help")
                                 .executes(AffixCommands::showHelp))
+                        .then(Commands.literal("clear_entity_vars")
+                                .then(Commands.argument("target", EntityArgument.entity()))
+                                .executes(AffixCommands::clearEntityVars))
         );
     }
 
@@ -252,8 +258,8 @@ public class AffixCommands {
         return 0;
     }
 
-    private static ItemStack isValidItem(CommandContext<CommandSourceStack> context) {ServerPlayer player;
-        player = context.getSource().getPlayer();
+    private static ItemStack isValidItem(CommandContext<CommandSourceStack> context) {
+        ServerPlayer player = context.getSource().getPlayer();
         if (player == null) return null;
         ItemStack itemStack = player.getMainHandItem();
 
@@ -283,6 +289,17 @@ public class AffixCommands {
             context.getSource().sendFailure(Component.literal("刷新词缀失败: " + e.getMessage()));
             return 0;
         }
+    }
+
+    private static int clearEntityVars(CommandContext<CommandSourceStack> context) {
+        if (context.getArgument("target", Entity.class) instanceof LivingEntity living) {
+            EntityVariableOperation.clearEntityVariables(living);
+
+            context.getSource().sendSuccess(() -> Component.literal("成功清除目标的实体变量"), true);
+            return 1;
+        }
+        context.getSource().sendFailure(Component.literal("目标不符合要求"));
+        return 0;
     }
     
     private static int showHelp(CommandContext<CommandSourceStack> context) {

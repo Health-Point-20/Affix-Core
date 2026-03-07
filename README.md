@@ -15,7 +15,7 @@ Affix Core 是一个Minecraft Forge模组，提供了一套完整的词缀系统
 - **丰富的操作类型**：涵盖伤害、治疗、属性、NBT等多种操作
 - **Curios兼容**：支持Curios饰品槽位系统
 - **高级Tooltip处理**：动态占位符、条件显示和彩色文本支持
-- **抽奖系统**：创新的物品抽奖机制
+- **抽奖系统**：支持自定义的物品抽奖机制
 - **表达式引擎**：支持的数学和逻辑表达式计算
 
 ## 🚀 主要功能
@@ -217,20 +217,6 @@ Affix Core 是一个Minecraft Forge模组，提供了一套完整的词缀系统
 
 - **Health_Point**
 
-## 🆘 帮助与支持
+## 帮助与支持
 
 如果您遇到问题，请在GitHub上提交Issue或访问我的 [Bilibili页面](https://space.bilibili.com/1424582807) 和 [QQ群](https://qm.qq.com/q/wshAOsGgSW) 获取更多信息。
-
-## 🔄 更新日志
-
-### v1.3 (当前版本)
-- 新增抽奖系统，支持容器和列表两种模式
-- 新增治疗操作类型（HealingOperation）
-- 新增自定义消息操作类型（CustomMessageOperation）
-- 新增禁用词缀操作类型（DisableAffixesOperation）
-- 增强范围伤害功能，支持表达式配置
-- 优化属性修饰符管理系统
-- 改进Tooltip处理系统的性能
-- 添加repeat和wait辅助命令
-- 新增闪避率和命中率特殊属性
-- 完善Curios API集成支持

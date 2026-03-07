@@ -14,6 +14,8 @@ import java.util.stream.Collectors;
 
 import static net.yixi_xun.affix_core.AffixCoreMod.LOGGER;
 import static net.yixi_xun.affix_core.affix.AffixManager.getAffixes;
+import static net.yixi_xun.affix_core.affix.operation.EntityVariableOperation.clearEntityVariables;
+import static net.yixi_xun.affix_core.affix.operation.EntityVariableOperation.getEntityVariables;
 
 /**
  * 词缀处理工具类
@@ -48,6 +50,13 @@ public class AffixProcessor {
             // 设置事件特定变量
             if (eventVarSetter != null) {
                 eventVarSetter.accept(context);
+            }
+
+            var entityVariables = getEntityVariables(entity);
+            if (entityVariables != null) {
+                context.getVariables().putAll(entityVariables);
+            } else {
+                clearEntityVariables(entity);
             }
 
             // 检查冷却

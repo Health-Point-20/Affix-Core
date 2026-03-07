@@ -12,7 +12,10 @@ import net.yixi_xun.affix_core.affix.operation.*;
 import net.yixi_xun.affix_core.api.AffixEvent;
 
 import java.lang.ref.WeakReference;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class AffixManager {
@@ -21,10 +24,10 @@ public class AffixManager {
     private static final String ITEM_UUID_NBT_KEY = "AffixItemUUID";
     
     // 使用物品的唯一ID作为Key
-    public static final Map<String, Map<String, Long>> affixCooldowns = new ConcurrentHashMap<>();
+    public static final Map<UUID, Map<String, Long>> affixCooldowns = new ConcurrentHashMap<>();
     
     // 缓存已解析的词缀列表
-    private static final Map<String, WeakReference<List<Affix>>> affixCache = new ConcurrentHashMap<>();
+    private static final Map<UUID, WeakReference<List<Affix>>> affixCache = new ConcurrentHashMap<>();
 
 
     /**
@@ -46,6 +49,7 @@ public class AffixManager {
         DisableAffixesOperation.register();
         HealingOperation.register();
         ItemOperation.register();
+        EntityVariableOperation.register();
 
         AffixEvent.RegisterOperationEvent event = new AffixEvent.RegisterOperationEvent();
         MinecraftForge.EVENT_BUS.post(event);
@@ -60,7 +64,7 @@ public class AffixManager {
         }
 
         // 获取物品的唯一ID
-        String itemId = getItemUniqueId(itemStack);
+        UUID itemId = getItemUniqueId(itemStack);
         
         // 尝试从缓存中获取
         WeakReference<List<Affix>> cachedRef = affixCache.get(itemId);
@@ -72,7 +76,7 @@ public class AffixManager {
             ListTag currentAffixList = itemStack.getOrCreateTag().getList(AFFIX_TAG_KEY, Tag.TAG_COMPOUND);
             if (currentAffixList.isEmpty()) return new ArrayList<>();
             if (isCacheValid(cachedAffixes, currentAffixList)) {
-                return new ArrayList<>(cachedAffixes); // 返回副本以防止外部修改
+                return cachedAffixes;
             }
         }
         
@@ -98,22 +102,17 @@ public class AffixManager {
             return false;
         }
         
-        // 简单验证：检查每个词缀的哈希值是否一致
+        // 检查每个词缀的哈希值是否一致
         for (int i = 0; i < cachedAffixes.size(); i++) {
             if (i >= currentAffixList.size()) {
                 return false;
             }
             
-            Affix cachedAffix = cachedAffixes.get(i);
+            CompoundTag cachedAffix = cachedAffixes.get(i).toNBT();
             CompoundTag currentNBT = currentAffixList.getCompound(i);
             
-            // 重建当前词缀并比较哈希值
-            Affix currentAffix = Affix.fromNBT(currentNBT);
-
-            if (currentAffix == null) return false;
-
-            if (!Objects.equals(cachedAffix.trigger(), currentAffix.trigger()) ||
-                    !Objects.equals(cachedAffix.operation().getType(), currentAffix.operation().getType())) {
+            // 比较词缀哈希值
+            if (currentNBT.hashCode() != cachedAffix.hashCode()) {
                 return false;
             }
         }
@@ -134,7 +133,7 @@ public class AffixManager {
         itemStack.getOrCreateTag().put(AFFIX_TAG_KEY, affixList);
         
         // 添加词缀后，使缓存失效
-        String itemId = getItemUniqueId(itemStack);
+        UUID itemId = getItemUniqueId(itemStack);
         affixCache.remove(itemId);
     }
 
@@ -178,8 +177,8 @@ public class AffixManager {
             }
         }
         
-        // 移除词缀后，使缓存失效
-        String itemId = getItemUniqueId(itemStack);
+        // 清理缓存
+        UUID itemId = getItemUniqueId(itemStack);
         affixCache.remove(itemId);
 
         return true;
@@ -198,36 +197,30 @@ public class AffixManager {
             itemStack.setTag(null);
         }
         
-        // 清除词缀后，使缓存失效
-        String itemId = getItemUniqueId(itemStack);
+        // 清理缓存
+        UUID itemId = getItemUniqueId(itemStack);
         affixCache.remove(itemId);
     }
     
     /**
      * 获取物品的唯一ID（用于冷却追踪）
      */
-    public static String getItemUniqueId(ItemStack itemStack) {
+    public static UUID getItemUniqueId(ItemStack itemStack) {
         CompoundTag nbt = itemStack.getOrCreateTag();
         
-        // 如果已经有UUID，直接返回
+        // 返回已有UUID
         if (nbt.contains(ITEM_UUID_NBT_KEY)) {
-            return nbt.getUUID(ITEM_UUID_NBT_KEY).toString();
+            return nbt.getUUID(ITEM_UUID_NBT_KEY);
         }
         
-        // 只有当物品有词缀时才分配UUID
+        // 分配新UUID
         if (nbt.contains(AFFIX_TAG_KEY)) {
             UUID uuid = UUID.randomUUID();
             nbt.putUUID(ITEM_UUID_NBT_KEY, uuid);
-            return uuid.toString();
+            return uuid;
         }
-        
-        // 如果物品没有词缀
-        String itemId = itemStack.getItem().getDescriptionId();
-        if (itemStack.hasTag()) {
-            // 如果有其他NBT但没有词缀，也加入NBT哈希以区分
-            itemId += "_" + itemStack.getOrCreateTag().hashCode();
-        }
-        return itemId;
+
+        return UUID.fromString("00000000-0000-0000-0000-000000000000");
     }
 
     /**
@@ -244,7 +237,7 @@ public class AffixManager {
     public static boolean isCooldownOver(ItemStack itemStack, Affix affix, Level world) {
         if (affix == null || affix.uuid() == null) return true;
 
-        String itemId = getItemUniqueId(itemStack);
+        UUID itemId = getItemUniqueId(itemStack);
         String cooldownKey = generateCooldownKey(affix);
         Map<String, Long> cooldownMap = affixCooldowns.get(itemId);
 
@@ -255,9 +248,8 @@ public class AffixManager {
 
         // 添加一个小的容差值
         long currentTime = world.getGameTime();
-        long tolerance = 2L; // 2游戏刻的容差
 
-        return expireTime <= (currentTime + tolerance);
+        return expireTime <= (currentTime);
     }
 
     /**
@@ -266,7 +258,7 @@ public class AffixManager {
     public static void setCooldown(ItemStack itemStack, Affix affix, long cooldownTicks, Level world) {
         if (cooldownTicks <= 0 || affix == null || affix.uuid() == null) return;
             
-        String itemId = getItemUniqueId(itemStack);
+        UUID itemId = getItemUniqueId(itemStack);
         String cooldownKey = generateCooldownKey(affix);
             
         long currentTime = world.getGameTime();
@@ -278,7 +270,7 @@ public class AffixManager {
      * 清除指定物品的所有冷却数据
      */
     public static void clearCooldowns(ItemStack itemStack) {
-        String itemId = getItemUniqueId(itemStack);
+        UUID itemId = getItemUniqueId(itemStack);
         affixCooldowns.remove(itemId);
     }
     
@@ -293,7 +285,7 @@ public class AffixManager {
             return;
         }
         
-        String itemId = getItemUniqueId(itemStack);
+        UUID itemId = getItemUniqueId(itemStack);
         affixCache.remove(itemId);
         AffixCoreMod.LOGGER.debug("已清除物品词缀缓存: {} (ID: {})", 
             itemStack.getHoverName().getString(), itemId);

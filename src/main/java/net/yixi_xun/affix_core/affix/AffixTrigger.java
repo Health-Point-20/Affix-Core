@@ -8,6 +8,7 @@ import net.minecraftforge.event.entity.item.ItemTossEvent;
 import net.minecraftforge.event.entity.living.*;
 import net.minecraftforge.event.entity.player.AttackEntityEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.yixi_xun.affix_core.api.AffixEvent.CustomMessageEvent;
@@ -91,6 +92,20 @@ public class AffixTrigger {
         ItemStack to = event.getTo();
         String slot = event.getSlot().getName();
 
+        handleEquipmentChange(event, entity, from, to, slot);
+    }
+
+    @SubscribeEvent
+    public static void onCurioChange(CurioChangeEvent event) {
+        LivingEntity entity = event.getEntity();
+        ItemStack from = event.getFrom();
+        ItemStack to = event.getTo();
+        String slot = event.getIdentifier();
+
+        handleEquipmentChange(event, entity, from, to, slot);
+    }
+
+    private static void handleEquipmentChange(Event event, LivingEntity entity, ItemStack from, ItemStack to, String slot) {
         // 移除旧装备提供的词缀效果
         if (!from.isEmpty()) {
             List<Affix> affixes = getAffixes(from);
@@ -103,43 +118,22 @@ public class AffixTrigger {
         // 如果新装备有词缀，触发 on_equip 事件
         if (!to.isEmpty()) {
             processSingleItemAffix(entity, slot, to, "on_equip", event, (context) -> {
-                context.addVariable("slot", event.getSlot().getName());
+                context.addVariable("slot", slot);
                 context.addVariable("item", createItemData(to));
-            });}
-
-        if (!from.isEmpty()) {
-            processSingleItemAffix(entity, slot, from, "on_unequip", event, (context) -> {
-                context.addVariable("slot", event.getSlot().getName());
-                context.addVariable("item", createItemData(from));
+            });
+            processAffixTriggerWithVars(entity, "on_any_equip", event, (context) -> {
+                context.addVariable("slot", slot);
+                context.addVariable("item", createItemData(to));
             });
         }
-    }
-
-    @SubscribeEvent
-    public static void onCurioChange(CurioChangeEvent event) {
-        LivingEntity entity = event.getEntity();
-        ItemStack from = event.getFrom();
-        ItemStack to = event.getTo();
-        String slot = event.getIdentifier();
-
-        // 移除旧装备提供的词缀效果
-        if (!from.isEmpty()) {
-            List<Affix> affixes = getAffixes(from);
-            if (affixes.isEmpty()) return;
-            for (Affix affix : affixes) {
-                handleItemRemoval(entity, from, affix);
-            }
-        }
-
-        if (!to.isEmpty()) {
-            processSingleItemAffix(entity, slot, to, "on_equip", event, (context) -> {
-                context.addVariable("slot", event.getIdentifier());
-                context.addVariable("item", createItemData(to));
-            });}
 
         if (!from.isEmpty()) {
             processSingleItemAffix(entity, slot, from, "on_unequip", event, (context) -> {
-                context.addVariable("slot", event.getIdentifier());
+                context.addVariable("slot", slot);
+                context.addVariable("item", createItemData(from));
+            });
+            processAffixTriggerWithVars(entity, "on_any_unequip", event, (context) -> {
+                context.addVariable("slot", slot);
                 context.addVariable("item", createItemData(from));
             });
         }

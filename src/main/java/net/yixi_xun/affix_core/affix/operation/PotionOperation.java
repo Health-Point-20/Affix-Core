@@ -9,6 +9,10 @@ import net.minecraftforge.registries.ForgeRegistries;
 import net.yixi_xun.affix_core.AffixCoreMod;
 import net.yixi_xun.affix_core.affix.AffixContext;
 
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
  * 药水效果操作，给目标或自己添加药水效果
  */
@@ -24,10 +28,12 @@ public class PotionOperation extends BaseOperation {
     private final boolean showParticles;
     private final boolean showIcon;
     private final String targetString;
+    private final boolean shouldRemoved;
+    private final Map<UUID, MobEffect> appliedEffects = new ConcurrentHashMap<>();
 
     public PotionOperation(ResourceLocation effectId, String durationExpression, String amplifierExpression, 
                           String maxAmplifierExpression, String maxDurationExpression, boolean ambient, boolean showParticles,
-                          boolean showIcon, boolean overrideExisting, String target) {
+                          boolean showIcon, boolean overrideExisting, String target, boolean shouldRemoved) {
         this.effectId = effectId != null ? effectId : ResourceLocation.tryParse("minecraft.speed");
         this.durationExpression = durationExpression != null ? durationExpression : "100";
         this.amplifierExpression = amplifierExpression != null ? amplifierExpression : "0";
@@ -38,6 +44,7 @@ public class PotionOperation extends BaseOperation {
         this.showIcon = showIcon;
         this.overlayEffect = overrideExisting;
         this.targetString = target != null ? target : "target";
+        this.shouldRemoved = shouldRemoved;
     }
 
     @Override
@@ -66,6 +73,9 @@ public class PotionOperation extends BaseOperation {
             effect, duration, amplifier, ambient, showParticles, showIcon
         );
         target.addEffect(effectInstance);
+        if (shouldRemoved) {
+            appliedEffects.put(target.getUUID(), effect);
+        }
     }
 
     /**
@@ -73,6 +83,11 @@ public class PotionOperation extends BaseOperation {
      */
     private int calculateAmplifier(AffixContext context, MobEffect effect, LivingEntity target) {
         int baseAmplifier = Math.max(0, (int) evaluateOrDefaultValue(amplifierExpression, context.getVariables(), 0));
+
+        if (maxAmplifierExpression.equals("-1")) {
+            return baseAmplifier;
+        }
+
         int maxAmplifier = Math.max(0, (int) evaluateOrDefaultValue(maxAmplifierExpression, context.getVariables(), 4));
 
         if (overlayEffect) {
@@ -85,14 +100,16 @@ public class PotionOperation extends BaseOperation {
             }
         }
 
-        if (maxAmplifierExpression.equals("-1")) {
-            return baseAmplifier;
-        }
         return Math.min(baseAmplifier, maxAmplifier);
     }
 
     private int calculateDuration(AffixContext context, MobEffect effect, LivingEntity target) {
         int baseDuration = Math.max(0, (int) evaluateOrDefaultValue(durationExpression, context.getVariables(), 100));
+
+        if (maxDurationExpression.equals("-1")) {
+            return baseDuration;
+        }
+
         int maxDuration = Math.max(0, (int) evaluateOrDefaultValue(maxDurationExpression, context.getVariables(), 100000));
 
         if (overlayEffect) {
@@ -104,15 +121,17 @@ public class PotionOperation extends BaseOperation {
             }
         }
 
-        if (maxDurationExpression.equals("-1")) {
-            return baseDuration;
-        }
         return Math.min(baseDuration, maxDuration);
     }
 
     @Override
     public void remove(AffixContext context) {
-       // 不需要移除
+        if (!appliedEffects.isEmpty()) {
+            for (MobEffect effect : appliedEffects.values()) {
+                getTargetEntity(context, targetString).removeEffect(effect);
+            }
+            appliedEffects.clear();
+        }
     }
 
     @Override
@@ -129,6 +148,7 @@ public class PotionOperation extends BaseOperation {
         nbt.putString("MaxAmplifierExpression", maxAmplifierExpression);
         nbt.putString("MaxDurationExpression", maxDurationExpression);
         nbt.putString("Target", targetString);
+        nbt.putBoolean("ShouldRemoved", shouldRemoved);
         return nbt;
     }
 
@@ -153,8 +173,9 @@ public class PotionOperation extends BaseOperation {
         String maxAmplifierExpression = nbt.contains("MaxAmplifierExpression") ? nbt.getString("MaxAmplifierExpression") : "-1";
         String maxDurationExpression = nbt.contains("MaxDurationExpression") ? nbt.getString("MaxDurationExpression") : "-1";
         String target = nbt.contains("Target") ? nbt.getString("Target") : "target";
+        boolean shouldRemoved = nbt.contains("ShouldRemoved") && nbt.getBoolean("ShouldRemoved");
 
-        return new PotionOperation(effectId, durationExpression, amplifierExpression, maxAmplifierExpression, maxDurationExpression, ambient, showParticles, showIcon, overlayEffect, target);
+        return new PotionOperation(effectId, durationExpression, amplifierExpression, maxAmplifierExpression, maxDurationExpression, ambient, showParticles, showIcon, overlayEffect, target, shouldRemoved);
     }
 
     /**

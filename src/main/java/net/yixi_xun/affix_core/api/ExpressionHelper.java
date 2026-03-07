@@ -1,7 +1,6 @@
 package net.yixi_xun.affix_core.api;
 
 import net.minecraft.nbt.*;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attribute;
@@ -341,7 +340,7 @@ public class ExpressionHelper {
         return result instanceof Number ? ((Number) result).doubleValue() : 0.0;
     }
 
-    // 解析带点的变量路径，如 self.effect.minecraft:speed.duration
+    // 解析带点的变量路径，如 self.effect.speed.duration
     public static Object resolveVariablePath(String varPath, Map<String, ?> variables) {
         if (variables.containsKey(varPath)) {
             return variables.get(varPath);
@@ -375,11 +374,10 @@ public class ExpressionHelper {
                     // 获取map中的值
                     current = map.get(part);
                 } else if (map.containsKey("entity_ref")) {
-                    // 检测到 entity_ref 时，动态处理 attribute/effect/nbt
-                    // 避免在创建 Map 时就遍历所有属性/效果
+                    // 检测到 entity_ref 时处理 attribute/effect/nbt
                     Object entityRef = map.get("entity_ref");
                     if (entityRef instanceof LivingEntity entity) {
-                        current = handleEntityPropertyDynamic(entity, part);
+                        current = handleEntityProperty(entity, part);
                     } else {
                         return 0.0;
                     }
@@ -387,7 +385,7 @@ public class ExpressionHelper {
                     return 0.0;
                 }
             } else if (current instanceof LivingEntity entity) {
-                current = handleEntityPropertyDynamic(entity, part);
+                current = handleEntityProperty(entity, part);
             } else {
                 return 0.0;
             }
@@ -395,93 +393,35 @@ public class ExpressionHelper {
         return current;
     }
 
-    // 动态处理实体属性，避免全量加载
-    private static Object handleEntityPropertyDynamic(LivingEntity entity, String part) {
+    // 处理实体属性
+    private static Object handleEntityProperty(LivingEntity entity, String part) {
         return switch (part) {
-            case "attribute" -> new EntityAttributeWrapper(entity); // 返回一个包装器，支持后续路径查找
-            case "effect" -> new EntityEffectWrapper(entity);
+            case "attribute" -> getEntityAttributes(entity);
+            case "effect" -> getEntityEffects(entity);
             case "nbt" -> parseNbtCompound(entity.getPersistentData());
             default -> 0.0;
         };
     }
 
-    // 包装器类，用于延迟获取特定属性
-    private static class EntityAttributeWrapper extends HashMap<String, Object> {
-        private final LivingEntity entity;
-
-        public EntityAttributeWrapper(LivingEntity entity) {
-            this.entity = entity;
-        }
-
-        @Override
-        public Object get(Object key) {
-            // 实时查找属性，而不是遍历注册表
-            // 这里的 key 可能是 "generic.attack_damage" 或 "minecraft:generic.attack_damage"
-            Attribute attribute = ForgeRegistries.ATTRIBUTES.getValue(ResourceLocation.tryParse(key.toString()));
-            if (attribute != null) {
-                AttributeInstance instance = entity.getAttribute(attribute);
-                return instance != null ? instance.getValue() : 0.0;
+    private static Map<String, Object> getEntityAttributes(LivingEntity entity) {
+        Map<String, Object> attributes = new HashMap<>();
+        for (Attribute attribute : ForgeRegistries.ATTRIBUTES) {
+            AttributeInstance instance = entity.getAttribute(attribute);
+            if (instance != null) {
+                attributes.put(attribute.getDescriptionId(), instance.getValue());
             }
-            return 0.0;
         }
-
-        @Override
-        public boolean containsKey(Object key) {
-            return ForgeRegistries.ATTRIBUTES.getValue(ResourceLocation.tryParse(key.toString())) != null;
-        }
+        return attributes;
     }
 
-    // 包装器类，用于延迟获取效果
-    private static class EntityEffectWrapper extends HashMap<String, Object> {
-        private final LivingEntity entity;
-
-        public EntityEffectWrapper(LivingEntity entity) {
-            this.entity = entity;
+    private static Map<String, Object> getEntityEffects(LivingEntity entity) {
+        Map<String, Object> effects = new HashMap<>();
+        for (MobEffectInstance effect : entity.getActiveEffects()) {
+            String effectId = effect.getEffect().getDescriptionId();
+            effects.put(effectId + ".duration", effect.getDuration());
+            effects.put(effectId + ".amplifier", effect.getAmplifier());
         }
-
-        @Override
-        public Object get(Object key) {
-            // key 通常是 registry name，如 "minecraft:speed"
-            ResourceLocation effectId = ResourceLocation.tryParse(key.toString());
-            var effect = ForgeRegistries.MOB_EFFECTS.getValue(effectId);
-            if (effect != null) {
-                MobEffectInstance instance = entity.getEffect(effect);
-                if (instance != null) {
-                    Map<String, Object> data = new HashMap<>();
-                    data.put("duration", instance.getDuration());
-                    data.put("amplifier", instance.getAmplifier());
-                    return data;
-                }
-            }
-            return 0.0;
-        }
-    }
-
-    // 分离的算术运算处理方法
-    private static void processArithmeticOperation(Stack<Object> valueStack, Token token) {
-        if (valueStack.size() < 2) {
-            throw new IllegalArgumentException("Invalid expression: insufficient values for operator " + token.value);
-        }
-        Object bObj = valueStack.pop();
-        Object aObj = valueStack.pop();
-
-        double b = bObj instanceof Number ? ((Number) bObj).doubleValue() : 0.0;
-        double a = aObj instanceof Number ? ((Number) aObj).doubleValue() : 0.0;
-
-        double result = switch (token.type) {
-            case OPERATOR_ADD -> a + b;
-            case OPERATOR_SUB -> a - b;
-            case OPERATOR_MUL -> a * b;
-            case OPERATOR_DIV -> {
-                if (b == 0) {
-                    throw new IllegalArgumentException("Division by zero");
-                }
-                yield a / b;
-            }
-            case OPERATOR_POW -> Math.pow(a, b);
-            default -> throw new IllegalArgumentException("Unknown operator: " + token.value);
-        };
-        valueStack.push(result);
+        return effects;
     }
 
     // 解析NBT复合标签
@@ -517,6 +457,33 @@ public class ExpressionHelper {
         } else {
             return tag.getAsString();
         }
+    }
+
+    // 分离的算术运算处理方法
+    private static void processArithmeticOperation(Stack<Object> valueStack, Token token) {
+        if (valueStack.size() < 2) {
+            throw new IllegalArgumentException("Invalid expression: insufficient values for operator " + token.value);
+        }
+        Object bObj = valueStack.pop();
+        Object aObj = valueStack.pop();
+
+        double b = bObj instanceof Number ? ((Number) bObj).doubleValue() : 0.0;
+        double a = aObj instanceof Number ? ((Number) aObj).doubleValue() : 0.0;
+
+        double result = switch (token.type) {
+            case OPERATOR_ADD -> a + b;
+            case OPERATOR_SUB -> a - b;
+            case OPERATOR_MUL -> a * b;
+            case OPERATOR_DIV -> {
+                if (b == 0) {
+                    throw new IllegalArgumentException("Division by zero");
+                }
+                yield a / b;
+            }
+            case OPERATOR_POW -> Math.pow(a, b);
+            default -> throw new IllegalArgumentException("Unknown operator: " + token.value);
+        };
+        valueStack.push(result);
     }
 
     // 分离的比较运算处理方法
