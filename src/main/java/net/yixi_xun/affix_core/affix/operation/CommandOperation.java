@@ -115,7 +115,7 @@ public class CommandOperation extends BaseOperation {
      */
     private Entity getExecutorEntity(AffixContext context) {
         return switch (executor.toLowerCase()) {
-            case "self" -> context.getOwner();
+            case "owner","self" -> context.getOwner();
             case "target" -> context.getTarget();
             case "server" -> null;
             default -> {
@@ -148,8 +148,8 @@ public class CommandOperation extends BaseOperation {
      * 工厂方法，从NBT创建CommandOperation
      */
     public static CommandOperation fromNBT(CompoundTag nbt) {
-        String command = getString(nbt, "Command", "");
-        String executor = getString(nbt, "Executor", "server");
+        String command = getStringOrDefaultValue(nbt, "Command", "");
+        String executor = getStringOrDefaultValue(nbt, "Executor", "server");
 
         return new CommandOperation(command, executor);
     }

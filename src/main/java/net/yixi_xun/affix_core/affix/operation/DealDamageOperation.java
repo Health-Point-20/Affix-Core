@@ -156,16 +156,16 @@ public class DealDamageOperation extends BaseOperation {
      * 工厂方法，从NBT创建DamageOperation
      */
     public static DealDamageOperation fromNBT(CompoundTag nbt) {
-        String amountExpression = getString(nbt, "AmountExpression", "1");
-        String damageTypeId = getString(nbt, "DamageTypeId", "minecraft:player_attack");
-        String target = getString(nbt, "Target", "target");
-        String isExtraDamage = getString(nbt, "IsExtraDamage", "true");
-        String sourceEntity = getString(nbt, "SourceEntity", "");
+        String amountExpression = getStringOrDefaultValue(nbt, "AmountExpression", "1");
+        String damageTypeId = getStringOrDefaultValue(nbt, "DamageTypeId", "minecraft:player_attack");
+        String target = getStringOrDefaultValue(nbt, "Target", "target");
+        String isExtraDamage = getStringOrDefaultValue(nbt, "IsExtraDamage", "true");
+        String sourceEntity = getStringOrDefaultValue(nbt, "SourceEntity", "");
         
         // 范围伤害字段
-        String isAreaDamage = getString(nbt, "IsAreaDamage", "false");
-        String maxEntitiesExpression = getString(nbt, "MaxEntitiesExpression", "0");
-        String rangeExpression = getString(nbt, "RangeExpression", "0");
+        String isAreaDamage = getStringOrDefaultValue(nbt, "IsAreaDamage", "false");
+        String maxEntitiesExpression = getStringOrDefaultValue(nbt, "MaxEntitiesExpression", "0");
+        String rangeExpression = getStringOrDefaultValue(nbt, "RangeExpression", "0");
 
         return new DealDamageOperation(amountExpression, damageTypeId, isExtraDamage, target, sourceEntity, isAreaDamage, maxEntitiesExpression, rangeExpression);
     }
@@ -181,13 +181,8 @@ private void applyAreaDamage(AffixContext context, LivingEntity centerEntity, Da
     // 计算范围伤害参数
     int maxEntities = (int) evaluate(maxEntitiesExpression, context.getVariables());
     double range = evaluate(rangeExpression, context.getVariables());
-    
-    // 为0则使用配置中的最大值
-    if (maxEntities < 0 || range < 0) {
-        return; // 无效的范围参数
-    }
-    
-    // 应用配置限制：当范围为0时，使用配置的最大范围
+
+    // 应用配置限制：当范围小于0时，使用配置的最大范围
     double effectiveRange = range > 0 ? range : ACConfig.MAX_AREA_DAMAGE_RANGE.get();
     int effectiveMaxEntities = maxEntities > 0 ? maxEntities : ACConfig.MAX_AREA_DAMAGE_ENTITIES.get();
     

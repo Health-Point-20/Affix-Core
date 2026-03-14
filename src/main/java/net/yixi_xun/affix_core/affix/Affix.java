@@ -18,7 +18,7 @@ import static net.yixi_xun.affix_core.api.ExpressionHelper.evaluateCondition;
  * 表示一个词缀，包含触发器、条件、操作、冷却时间和槽位限制等信息
  */
 public record Affix(UUID uuid, String trigger, String condition, IOperation operation, Long cooldown, int triggerCount,
-                    String slot, long priority) {
+                    String slot, long priority, int repetitionTimes) {
     /**
      * 从物品NBT中读取词缀信息
      */
@@ -56,7 +56,10 @@ public record Affix(UUID uuid, String trigger, String condition, IOperation oper
         // 读取优先级
         long priority = nbt.contains("Priority") ? nbt.getLong("Priority") : 0L;
 
-        return new Affix(uuid, trigger, condition, operation, cooldown, triggerCount, slot, priority);
+        // 读取重复次数
+        int repetitionTimes = nbt.contains("RepetitionTimes") ? nbt.getInt("RepetitionTimes") : 1;
+
+        return new Affix(uuid, trigger, condition, operation, cooldown, triggerCount, slot, priority, repetitionTimes);
     }
 
     /**
@@ -89,6 +92,8 @@ public record Affix(UUID uuid, String trigger, String condition, IOperation oper
         nbt.putString("Slot", slot == null ? "" : slot);
 
         nbt.putLong("Priority", priority);
+
+        nbt.putInt("RepetitionTimes", repetitionTimes);
 
         return nbt;
     }
@@ -128,7 +133,11 @@ public record Affix(UUID uuid, String trigger, String condition, IOperation oper
 
             if (executeEvent.isCanceled()) return;
 
-            operation.apply(context);
+            if (repetitionTimes <= 0) return;
+
+            for (int i = 0; i < repetitionTimes; i++) {
+                operation.apply(context);
+            }
 
             // 更新词缀触发次数
             if (triggerCount >= 0) {

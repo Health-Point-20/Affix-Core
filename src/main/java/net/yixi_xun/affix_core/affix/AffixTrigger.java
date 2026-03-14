@@ -2,8 +2,15 @@ package net.yixi_xun.affix_core.affix;
 
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.AbstractArrow;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.entity.ProjectileImpactEvent;
 import net.minecraftforge.event.entity.item.ItemTossEvent;
 import net.minecraftforge.event.entity.living.*;
 import net.minecraftforge.event.entity.player.AttackEntityEvent;
@@ -15,41 +22,53 @@ import net.yixi_xun.affix_core.api.AffixEvent.CustomMessageEvent;
 import top.theillusivec4.curios.api.event.CurioChangeEvent;
 
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 
 import static net.yixi_xun.affix_core.AffixCoreMod.MOD_ID;
-import static net.yixi_xun.affix_core.affix.AffixContext.createEntityData;
-import static net.yixi_xun.affix_core.affix.AffixContext.createItemData;
+import static net.yixi_xun.affix_core.affix.AffixContext.*;
 import static net.yixi_xun.affix_core.affix.AffixManager.getAffixes;
 import static net.yixi_xun.affix_core.affix.AffixProcessor.*;
+import static net.yixi_xun.affix_core.affix.operation.VariableOperation.getEntityVariables;
+import static net.yixi_xun.affix_core.affix.operation.VariableOperation.removeEntityVariables;
 
 @Mod.EventBusSubscriber(modid = MOD_ID)
 public class AffixTrigger {
+    private static final Map<Player, Vec3> lastPlayerPositions = new WeakHashMap<>();
     /**
      * 攻击事件监听器
      */
     @SubscribeEvent
     public static void onHurt(LivingHurtEvent event) {
+        LivingEntity attacker = event.getSource().getEntity() instanceof LivingEntity living ? living : null;
+        LivingEntity target = event.getEntity();
+
         processAffixTriggerWithVars(event.getSource().getEntity(), "on_attack", event, (context) -> {
-            LivingEntity target = event.getEntity();
-            context.addVariable("damage", event.getAmount());
-            context.addVariable("damage_type", event.getSource().type().msgId());
+            addDamageVariables(context, event);
             context.addVariable("target", createEntityData(target));
             context.addVariable("distance", context.getOwner().distanceTo(target));
-            if (target instanceof Player player) {
+            if (attacker instanceof Player player) {
                 context.addVariable("attack_cooldown", player.getAttackStrengthScale(0.5F));
             }
         });
+
         processAffixTriggerWithVars(event.getEntity(), "on_hurt", event, (context) -> {
-            context.addVariable("damage", event.getAmount());
-            context.addVariable("damage_type", event.getSource().type().msgId());
-            if (event.getSource().getEntity() instanceof LivingEntity attacker) {
+            addDamageVariables(context, event);
+            if (attacker != null) {
                 context.addVariable("attacker", createEntityData(attacker));
                 context.addVariable("distance", context.getOwner().distanceTo(attacker));
-            } else {
-                context.addVariable("attacker", createEntityData(context.getOwner())); // 默认为自身
-                context.addVariable("distance", 0);
+                if (attacker instanceof Player player) {
+                    context.addVariable("attack_cooldown", player.getAttackStrengthScale(0.5F));
+                }
             }
         });
+    }
+
+    // 添加伤害变量
+    private static void addDamageVariables(AffixContext context, LivingHurtEvent event) {
+        context.addVariable("damage", event.getAmount());
+        context.addVariable("damage_type", event.getSource().type().msgId());
+        context.addVariable("is_indirect", event.getSource().isIndirect() ? 1 : 0);
     }
 
     /**
@@ -152,7 +171,8 @@ public class AffixTrigger {
      */
     @SubscribeEvent
     public static void onInteract(PlayerInteractEvent.RightClickItem event) {
-        processAffixTrigger(event.getEntity(), "on_right_click", event);
+        processAffixTriggerWithVars(event.getEntity(), "on_right_click", event, (context ->
+                context.addVariable("item", createItemData(event.getItemStack()))));
     }
 
     /**
@@ -160,16 +180,8 @@ public class AffixTrigger {
      */
     @SubscribeEvent
     public static void onInteractBlock(PlayerInteractEvent.RightClickBlock event) {
-        BlockState block = event.getLevel().getBlockState(event.getPos());
-        if (!block.isAir()) {
-            processAffixTriggerWithVars(event.getEntity(), "on_right_click_block", event, (context) -> {
-                context.addVariable("block_name", block.getBlock().getName());
-                context.addVariable("block_id", block.getBlock().getDescriptionId());
-                context.addVariable("x", event.getPos().getX());
-                context.addVariable("y", event.getPos().getY());
-                context.addVariable("z", event.getPos().getZ());
-            });
-        }
+        processAffixTriggerWithVars(event.getEntity(), "on_right_click_block", event, (context) ->
+                    context.addVariable("block",createBlockData(event.getPos(), event.getLevel())));
     }
 
     /**
@@ -200,13 +212,8 @@ public class AffixTrigger {
      */
     @SubscribeEvent
     public static void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
-        processAffixTriggerWithVars(event.getEntity(), "on_left_click_block", event, (context) -> {
-            context.addVariable("block_name", event.getLevel().getBlockState(event.getPos()).getBlock().getName());
-            context.addVariable("block_id", event.getLevel().getBlockState(event.getPos()).getBlock().getDescriptionId());
-            context.addVariable("x", event.getPos().getX());
-            context.addVariable("y", event.getPos().getY());
-            context.addVariable("z", event.getPos().getZ());
-        });
+        processAffixTriggerWithVars(event.getEntity(), "on_left_click_block", event, (context) ->
+                context.addVariable("block", createBlockData(event.getPos(), event.getLevel())));
     }
 
     /**
@@ -254,5 +261,110 @@ public class AffixTrigger {
     public static void onCustomMessage(CustomMessageEvent event) {
         processAffixTriggerWithVars(event.getEntity(), "on_custom_message", event, (context ->
                 context.addVariable("message", event.getMessage())));
+    }
+
+    /**
+     * 弹射物击中实体
+     */
+    @SubscribeEvent
+    public static void onProjectileImpact(ProjectileImpactEvent event) {
+        Projectile projectile = event.getProjectile();
+        HitResult rayTraceResult = event.getRayTraceResult();
+        if (projectile.getOwner() instanceof LivingEntity owner) {
+            var entity_vars = getEntityVariables(owner);
+
+            if (rayTraceResult instanceof EntityHitResult hitResult) {
+                if ((hitResult.getEntity() instanceof LivingEntity target)) {
+                    if (entity_vars.containsKey("weapon")) {
+                        ItemStack weapon = (ItemStack) entity_vars.get("weapon");
+                        processSingleItemAffix(owner,"mainhand", weapon, "on_projectile_hit_entity", event, (context -> {
+                            context.addVariable("target", createEntityData(target));
+                            context.addVariable("weapon", createItemData(weapon));
+                            addArrowVariables(context, projectile);
+                        }));
+                    }
+
+                    if (entity_vars.containsKey("ammo")) {
+                        ItemStack ammo = (ItemStack) entity_vars.get("ammo");
+                        processSingleItemAffix(owner, "ammo", ammo, "on_projectile_hit_entity", event, (context -> {
+                            context.addVariable("target", createEntityData(target));
+                            context.addVariable("ammo", createItemData(ammo));
+                            addArrowVariables(context, projectile);
+                        }));
+                    }
+                }
+            } else if (rayTraceResult instanceof BlockHitResult blockHitResult) {
+                if (entity_vars.containsKey("weapon")) {
+                    ItemStack weapon = (ItemStack) entity_vars.get("weapon");
+                    processSingleItemAffix(owner,"mainhand", weapon, "on_projectile_hit_block", event, (context -> {
+                        context.addVariable("block", createBlockData(blockHitResult.getBlockPos(), owner.level()));
+                        context.addVariable("weapon", createItemData(weapon));
+                        addArrowVariables(context, projectile);
+                    }));
+                }
+                if (entity_vars.containsKey("ammo")) {
+                    ItemStack ammo = (ItemStack) entity_vars.get("ammo");
+                    processSingleItemAffix(owner, "ammo", ammo, "on_projectile_hit_block", event, (context -> {
+                        context.addVariable("block", createBlockData(blockHitResult.getBlockPos(), owner.level()));
+                        context.addVariable("ammo", createItemData(ammo));
+                        addArrowVariables(context, projectile);
+                    }));
+                }
+            }
+
+            // 清理临时数据
+            entity_vars.remove("weapon");
+            entity_vars.remove("ammo");
+            if (entity_vars.isEmpty()) {
+                removeEntityVariables(owner);
+            }
+        }
+    }
+
+    private static void addArrowVariables(AffixContext context, Projectile projectile) {
+        if (projectile instanceof AbstractArrow arrow) {
+            context.addVariable("arrow_damage", arrow.getBaseDamage());
+            context.addVariable("arrow_speed", arrow.getDeltaMovement().length() * 20);
+            context.addVariable("pierce_level", arrow.getPierceLevel());
+        }
+    }
+
+    /**
+     * 弹射物发射前监听器
+     */
+    @SubscribeEvent
+    public static void onGetProjectile(LivingGetProjectileEvent event) {
+        LivingEntity shooter = event.getEntity();
+        ItemStack weapon = event.getProjectileWeaponItemStack();
+        ItemStack ammo = event.getProjectileItemStack();
+
+        if (shooter == null) return;
+
+        var entity_vars = getEntityVariables(shooter);
+        if (weapon != null) {
+            entity_vars.put("weapon", weapon);
+        }
+        if (ammo != null) {
+            entity_vars.put("ammo", ammo);
+        }
+    }
+
+    /**
+     * 玩家速度监听器
+     */
+    @SubscribeEvent
+    public static void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
+        event.getServer().getPlayerList().getPlayers().forEach(player ->
+                lastPlayerPositions.put(player, player.position()));
+    }
+
+    // 辅助方法：获取玩家移动向量
+    public static Vec3 getPlayerMovement(Player player) {
+        Vec3 lastPos = lastPlayerPositions.get(player);
+        if (lastPos != null) {
+            return lastPos.subtract(player.position());
+        }
+        return Vec3.ZERO;
     }
 }

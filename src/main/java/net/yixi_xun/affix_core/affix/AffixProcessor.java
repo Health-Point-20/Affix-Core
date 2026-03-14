@@ -14,8 +14,8 @@ import java.util.stream.Collectors;
 
 import static net.yixi_xun.affix_core.AffixCoreMod.LOGGER;
 import static net.yixi_xun.affix_core.affix.AffixManager.getAffixes;
-import static net.yixi_xun.affix_core.affix.operation.EntityVariableOperation.clearEntityVariables;
-import static net.yixi_xun.affix_core.affix.operation.EntityVariableOperation.getEntityVariables;
+import static net.yixi_xun.affix_core.affix.operation.VariableOperation.getEntityVariables;
+import static net.yixi_xun.affix_core.affix.operation.VariableOperation.getItemVariables;
 
 /**
  * 词缀处理工具类
@@ -52,12 +52,11 @@ public class AffixProcessor {
                 eventVarSetter.accept(context);
             }
 
+            // 添加额外变量
             var entityVariables = getEntityVariables(entity);
-            if (entityVariables != null) {
-                context.getVariables().putAll(entityVariables);
-            } else {
-                clearEntityVariables(entity);
-            }
+            context.getVariables().putAll(entityVariables);
+            var itemVariables = getItemVariables(itemStack);
+            context.getVariables().putAll(itemVariables);
 
             // 检查冷却
             if (affix.cooldown() > 0 && context.inCooldown()) {
@@ -118,9 +117,7 @@ public class AffixProcessor {
             return false;
         }
         
-        return Arrays.stream(affixTrigger.split(","))
-            .map(String::trim)
-            .anyMatch(trigger::equals);
+        return Arrays.asList(affixTrigger.split(",")).contains(trigger);
     }
 
     /**

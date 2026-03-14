@@ -1,5 +1,6 @@
 package net.yixi_xun.affix_core.affix;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
@@ -17,6 +18,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+import static net.yixi_xun.affix_core.affix.AffixTrigger.getPlayerMovement;
 import static net.yixi_xun.affix_core.api.ExpressionHelper.parseNbtCompound;
 
 public class AffixContext {
@@ -40,7 +42,7 @@ public class AffixContext {
         variables.put("random", Math.random());
         variables.put("trigger_count", affix.triggerCount());
         variables.put("time", world.getGameTime());
-        variables.put("world_name", world.dimension().location().toString());
+        variables.put("world_name", world.dimension().registry().toString());
     }
 
     /**
@@ -67,6 +69,22 @@ public class AffixContext {
         return itemData;
     }
 
+    /**
+     * 创建方块数据映射
+     */
+    public static Map<String, Object> createBlockData(BlockPos pos, Level world) {
+        Map<String, Object> blockData = new HashMap<>();
+        if (pos == null) {
+            return blockData;
+        }
+        blockData.put("x", pos.getX());
+        blockData.put("y", pos.getY());
+        blockData.put("z", pos.getZ());
+        blockData.put("name", world.getBlockState(pos).getBlock().getName());
+        blockData.put("id", world.getBlockState(pos).getBlock().getDescriptionId());
+        return blockData;
+    }
+
     // 初始化 self 变量
     private void ensureSelfInitialized() {
         if (!variables.containsKey("self")) {
@@ -86,6 +104,11 @@ public class AffixContext {
         entityData.put("x", entity.getX());
         entityData.put("y", entity.getY());
         entityData.put("z", entity.getZ());
+        if (entity instanceof Player player) {
+            entityData.put("speed", getPlayerMovement(player).length() * 20);
+        } else {
+            entityData.put("speed", entity.getDeltaMovement().length() * 20);
+        }
 
         // 字符串信息
         entityData.put("name", entity.getName().getString());
@@ -129,7 +152,6 @@ public class AffixContext {
     public LivingEntity getOwner() { return owner; }
     public ItemStack getItemStack() { return itemStack; }
     public Affix getAffix() { return affix; }
-    public Set<String> getTrigger() { return trigger; }
     public Event getEvent() { return event; }
 
     @Nullable

@@ -8,10 +8,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
-import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
@@ -43,8 +41,8 @@ public class RaffleBlock extends BaseEntityBlock {
                 if (!itemListRewards.isEmpty()) {
                     rewards = itemListRewards;
                 }
-            } else if (nbt.contains(RaffleDataManager.TAG_CONTAINER_POS)) {
-                // 从绑定的容器抽取
+            } else {
+                // 从绑定的容器抽取（支持多容器）
                 rewards = RaffleDataManager.drawFromContainer(nbt, level);
             }
 
@@ -53,17 +51,30 @@ public class RaffleBlock extends BaseEntityBlock {
                 return;
             }
 
-            // 生成物品
+            // 生成物品或执行命令方块中的指令
             for (ItemStack reward : rewards) {
-                if (reward.getItem() == Items.PAPER && reward.hasCustomHoverName() && level.getServer() != null) {
-                    String command = reward.getHoverName().getString();
-                    CommandSourceStack sourceStack = level.getServer().createCommandSourceStack().withPosition(pos.getCenter()).withEntity(player);
-                    level.getServer().getCommands().performPrefixedCommand(sourceStack, command);
-                } else {
-                    Vec3 itemPos = pos.getCenter();
-                    ItemEntity rewardEntity = new ItemEntity(level, itemPos.x, itemPos.y, itemPos.z, reward);
-                    level.addFreshEntity(rewardEntity);
+                // 检测是否为命令方块物品（从物品 NBT 中读取命令）
+                if (level.getServer() != null && reward.hasTag()) {
+                    CompoundTag itemTag = reward.getTag();
+                    // 检查是否包含 BlockEntityTag（命令方块物品的 NBT 结构）
+                    if (itemTag != null && itemTag.contains("BlockEntityTag", 10)) {
+                        CompoundTag blockEntityTag = itemTag.getCompound("BlockEntityTag");
+                        String command = blockEntityTag.getString("Command");
+                        
+                        // 如果命令不为空，则执行
+                        if (!command.isEmpty()) {
+                            CommandSourceStack sourceStack = level.getServer().createCommandSourceStack()
+                                    .withPosition(pos.getCenter())
+                                    .withEntity(player);
+                            level.getServer().getCommands().performPrefixedCommand(sourceStack, command);
+                            continue; // 执行命令后跳过物品掉落
+                        }
+                    }
                 }
+                // 普通物品直接掉落
+                Vec3 itemPos = pos.getCenter();
+                ItemEntity rewardEntity = new ItemEntity(level, itemPos.x, itemPos.y, itemPos.z, reward);
+                level.addFreshEntity(rewardEntity);
             }
         }
     }
@@ -73,11 +84,6 @@ public class RaffleBlock extends BaseEntityBlock {
     @Override
     public BlockEntity newBlockEntity(@NotNull BlockPos pos, @NotNull BlockState state) {
         return new RaffleBlockEntity(pos, state);
-    }
-    
-    @Override
-    public @NotNull RenderShape getRenderShape(@NotNull BlockState state) {
-        return RenderShape.MODEL;
     }
 }
 

@@ -32,11 +32,13 @@
   "tooltip.raffle.consume_self": "Consume Self: %s",
   "tooltip.raffle.configure_list": "Please Configure The Lottery List First",
   "tooltip.raffle.container_bound_at": "The bound container is located at (%d, %d, %d)",
+  "tooltip.raffle.containers_bound_count": "%d containers bound:",
 
 
   "message.raffle.no_permission": "Need Creative mode and at least level 2 permission to bind container",
   "message.raffle.not_container": "That block is not a valid container",
   "message.raffle.bind_success": "Successfully bound container at coordinates (%d, %d, %d)",
+  "message.raffle.container_count": "Currently bound to %d containers",
   "message.raffle.no_rewards": "No items available to draw",
   "message.raffle.success": "Successfully drew %d items!",
 

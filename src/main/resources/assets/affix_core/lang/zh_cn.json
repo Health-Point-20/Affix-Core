@@ -31,11 +31,13 @@
   "tooltip.raffle.consume_self": "消耗自身: %s",
   "tooltip.raffle.configure_list": "请先配置抽奖列表",
   "tooltip.raffle.container_bound_at": "绑定容器位于 (%d, %d, %d)",
+  "tooltip.raffle.containers_bound_count": "已绑定 %d 个容器:",
 
 
   "message.raffle.no_permission": "需要创造模式且至少2级权限才能绑定容器",
   "message.raffle.not_container": "该方块不是有效的容器",
   "message.raffle.bind_success": "成功绑定容器至坐标 (%d, %d, %d)",
+  "message.raffle.container_count": "当前已绑定 %d 个容器",
   "message.raffle.no_rewards": "没有可抽取的物品",
   "message.raffle.success": "成功抽取 %d 个物品!",
 

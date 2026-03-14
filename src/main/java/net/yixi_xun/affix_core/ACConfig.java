@@ -5,7 +5,6 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.config.ModConfigEvent;
 
-// Config class for the mod
 @Mod.EventBusSubscriber(modid = AffixCoreMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public class ACConfig {
     private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
@@ -15,6 +14,7 @@ public class ACConfig {
     public static final ForgeConfigSpec.DoubleValue MAX_AREA_DAMAGE_RANGE;
     public static final ForgeConfigSpec.IntValue MAX_AREA_DAMAGE_ENTITIES;
     public static final ForgeConfigSpec.BooleanValue SHOW_RAFFLE_CONTAINER_POS;
+    public static final ForgeConfigSpec.BooleanValue SHOW_RAFFLE_PROBABILITY_INFO;
     
     static {
         BUILDER.push("area_damage");
@@ -29,6 +29,9 @@ public class ACConfig {
         SHOW_RAFFLE_CONTAINER_POS = BUILDER
             .comment("Whether to show the container position in the tooltip when container Mode (default: false)")
             .define("showRaffleContainerPos", false);
+        SHOW_RAFFLE_PROBABILITY_INFO = BUILDER
+            .comment("Whether to show the probability information in the tooltip when container Mode (default: false)")
+            .define("showRaffleProbabilityInfo", true);
         BUILDER.pop();
     }
 

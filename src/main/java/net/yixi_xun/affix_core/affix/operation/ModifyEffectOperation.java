@@ -87,8 +87,8 @@ public class ModifyEffectOperation extends BaseOperation {
      * 工厂方法，从NBT创建PotionOperation
      */
     public static ModifyEffectOperation fromNBT(CompoundTag nbt) {
-        String durationExpression = getString(nbt, "DurationExpression", "100");
-        String amplifierExpression = getString(nbt, "AmplifierExpression", "0");
+        String durationExpression = getStringOrDefaultValue(nbt, "DurationExpression", "100");
+        String amplifierExpression = getStringOrDefaultValue(nbt, "AmplifierExpression", "0");
 
         return new ModifyEffectOperation(durationExpression, amplifierExpression);
     }

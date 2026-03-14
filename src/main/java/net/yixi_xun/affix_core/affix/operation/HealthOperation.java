@@ -120,14 +120,14 @@ public class HealthOperation extends BaseOperation {
      * 工厂方法，从NBT创建HealthOperation
      */
     public static HealthOperation fromNBT(CompoundTag nbt) {
-        String modeStr = getString(nbt, "Mode", "health");
+        String modeStr = getStringOrDefaultValue(nbt, "Mode", "health");
         Mode mode = Mode.fromString(modeStr);
 
-        String operationStr = getString(nbt, "Operation", "set");
+        String operationStr = getStringOrDefaultValue(nbt, "Operation", "set");
         MathOperation operation = MathOperation.fromString(operationStr);
 
-        String amountExpression = getString(nbt, "AmountExpression", "0");
-        String target = getString(nbt, "Target", "self");
+        String amountExpression = getStringOrDefaultValue(nbt, "AmountExpression", "0");
+        String target = getStringOrDefaultValue(nbt, "Target", "");
 
         return new HealthOperation(mode, operation, amountExpression, target);
     }

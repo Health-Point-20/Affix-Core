@@ -17,14 +17,16 @@ import net.yixi_xun.affix_core.items.RaffleItem;
 import java.util.*;
 
 import static net.yixi_xun.affix_core.ACConfig.SHOW_RAFFLE_CONTAINER_POS;
+import static net.yixi_xun.affix_core.ACConfig.SHOW_RAFFLE_PROBABILITY_INFO;
 
 /**
  * 抽奖物品数据管理器
  */
 public class RaffleDataManager {
     
-    // NBT标签常量
+    // NBT 标签常量
     public static final String TAG_CONTAINER_POS = "ContainerPos";
+    public static final String TAG_CONTAINER_LIST = "ContainerList";
     public static final String TAG_PROBABILITIES = "Probabilities";
     public static final String TAG_DRAW_COUNT = "DrawCount";
     public static final String TAG_ALLOW_REPEAT = "AllowRepeat";
@@ -62,7 +64,40 @@ public class RaffleDataManager {
     }
 
     /**
-     * 从容器中抽取物品
+     * 获取所有绑定的容器处理器列表
+     */
+    public static List<IItemHandler> getAllItemHandlers(CompoundTag nbt, Level level) {
+        List<IItemHandler> handlers = new ArrayList<>();
+        
+        if (nbt == null) return handlers;
+        
+        // 检查是否为多容器模式
+        if (nbt.contains(TAG_CONTAINER_LIST, Tag.TAG_LIST)) {
+            ListTag containerList = nbt.getList(TAG_CONTAINER_LIST, Tag.TAG_COMPOUND);
+            for (int i = 0; i < containerList.size(); i++) {
+                CompoundTag containerTag = containerList.getCompound(i);
+                BlockPos containerPos = getBoundContainerPos(containerTag);
+                if (containerPos != null) {
+                    BlockEntity blockEntity = level.getBlockEntity(containerPos);
+                    if (blockEntity != null) {
+                        Optional<IItemHandler> itemHandlerOpt = blockEntity.getCapability(ForgeCapabilities.ITEM_HANDLER).resolve();
+                        itemHandlerOpt.ifPresent(handlers::add);
+                    }
+                }
+            }
+        } else if (nbt.contains(TAG_CONTAINER_POS)) {
+            // 兼容旧的单容器模式
+            IItemHandler handler = getItemHandler(nbt, level);
+            if (handler != null) {
+                handlers.add(handler);
+            }
+        }
+        
+        return handlers;
+    }
+
+    /**
+     * 从容器中抽取物品（支持多容器）
      */
     public static List<ItemStack> drawFromContainer(CompoundTag nbt, Level level) {
         List<ItemStack> results = new ArrayList<>();
@@ -414,35 +449,175 @@ public class RaffleDataManager {
     }
     
     /**
-     * 获取绑定的容器位置
+     * 获取所有绑定的容器位置列表
      * @param stack 抽奖物品
-     * @return 容器位置，如果未绑定则返回null
+     * @return 容器位置列表
      */
-    public static BlockPos getBoundContainerPos(ItemStack stack) {
-        return getBoundContainerPos(stack.getTag());
+    public static List<BlockPos> getAllBoundContainerPositions(ItemStack stack) {
+        return getAllBoundContainerPositions(stack.getTag());
     }
-    
-    public static BlockPos getBoundContainerPos(CompoundTag nbt) {
-        if (nbt == null || !nbt.contains(TAG_CONTAINER_POS)) {
-            return null;
-        }
         
-        long posLong = nbt.getLong(TAG_CONTAINER_POS);
-        return BlockPos.of(posLong);
+    public static List<BlockPos> getAllBoundContainerPositions(CompoundTag nbt) {
+        List<BlockPos> positions = new ArrayList<>();
+            
+        if (nbt == null) return positions;
+            
+        // 检查是否为多容器模式
+        if (nbt.contains(TAG_CONTAINER_LIST, Tag.TAG_LIST)) {
+            ListTag containerList = nbt.getList(TAG_CONTAINER_LIST, Tag.TAG_COMPOUND);
+            for (int i = 0; i < containerList.size(); i++) {
+                CompoundTag containerTag = containerList.getCompound(i);
+                BlockPos pos = getBoundContainerPos(containerTag);
+                if (pos != null) {
+                    positions.add(pos);
+                }
+            }
+        } else if (nbt.contains(TAG_CONTAINER_POS)) {
+            // 兼容旧的单容器模式
+            BlockPos pos = getBoundContainerPos(nbt);
+            if (pos != null) {
+                positions.add(pos);
+            }
+        }
+            
+        return positions;
     }
-    
+        
     /**
-     * 设置绑定的容器位置
+     * 添加一个容器到绑定列表
      * @param stack 抽奖物品
      * @param pos 容器位置
      */
-    public static void setBoundContainerPos(ItemStack stack, BlockPos pos) {
-        setBoundContainerPos(stack.getOrCreateTag(), pos);
+    public static void addBoundContainer(ItemStack stack, BlockPos pos) {
+        addBoundContainer(stack.getOrCreateTag(), pos);
+    }
+        
+    public static void addBoundContainer(CompoundTag nbt, BlockPos pos) {
+        if (pos == null) return;
+            
+        // 如果当前是旧格式（单个 ContainerPos），转换为列表格式
+        if (nbt.contains(TAG_CONTAINER_POS) && !nbt.contains(TAG_CONTAINER_LIST)) {
+            convertToMultiContainerFormat(nbt);
+        }
+            
+        // 检查是否已经存在该位置
+        List<BlockPos> existingPositions = getAllBoundContainerPositions(nbt);
+        if (existingPositions.contains(pos)) {
+            return; // 已经绑定过，不再重复添加
+        }
+            
+        // 如果没有容器列表，创建一个新的
+        if (!nbt.contains(TAG_CONTAINER_LIST, Tag.TAG_LIST)) {
+            nbt.put(TAG_CONTAINER_LIST, new ListTag());
+        }
+            
+        // 添加新容器位置
+        ListTag containerList = nbt.getList(TAG_CONTAINER_LIST, Tag.TAG_COMPOUND);
+        CompoundTag containerTag = new CompoundTag();
+        setBoundContainerPos(containerTag, pos);
+        containerList.add(containerTag);
+    }
+        
+    /**
+     * 移除一个绑定的容器
+     * @param stack 抽奖物品
+     * @param pos 容器位置
+     */
+    public static void removeBoundContainer(ItemStack stack, BlockPos pos) {
+        removeBoundContainer(stack.getTag(), pos);
+    }
+        
+    public static void removeBoundContainer(CompoundTag nbt, BlockPos pos) {
+        if (nbt == null || pos == null) return;
+            
+        if (nbt.contains(TAG_CONTAINER_LIST, Tag.TAG_LIST)) {
+            ListTag containerList = nbt.getList(TAG_CONTAINER_LIST, Tag.TAG_COMPOUND);
+            ListTag newList = new ListTag();
+                
+            for (int i = 0; i < containerList.size(); i++) {
+                CompoundTag containerTag = containerList.getCompound(i);
+                BlockPos existingPos = getBoundContainerPos(containerTag);
+                if (!pos.equals(existingPos)) {
+                    newList.add(containerTag);
+                }
+            }
+                
+            nbt.put(TAG_CONTAINER_LIST, newList);
+                
+            // 如果移除后只剩一个容器，转换回旧格式以保持一致性
+            if (newList.size() == 1) {
+                convertToSingleContainerFormat(nbt);
+            }
+        } else if (nbt.contains(TAG_CONTAINER_POS)) {
+            // 旧格式，直接解绑
+            BlockPos existingPos = getBoundContainerPos(nbt);
+            if (pos.equals(existingPos)) {
+                unbindContainer(nbt);
+            }
+        }
+    }
+        
+    /**
+     * 将单容器格式转换为多容器格式
+     */
+    private static void convertToMultiContainerFormat(CompoundTag nbt) {
+        if (!nbt.contains(TAG_CONTAINER_POS)) return;
+            
+        ListTag containerList = new ListTag();
+        CompoundTag oldContainerTag = new CompoundTag();
+        oldContainerTag.putLong(TAG_CONTAINER_POS, nbt.getLong(TAG_CONTAINER_POS));
+        containerList.add(oldContainerTag);
+            
+        nbt.put(TAG_CONTAINER_LIST, containerList);
+        nbt.remove(TAG_CONTAINER_POS);
+    }
+        
+    /**
+     * 将多容器格式转换为单容器格式
+     */
+    private static void convertToSingleContainerFormat(CompoundTag nbt) {
+        if (!nbt.contains(TAG_CONTAINER_LIST, Tag.TAG_LIST)) return;
+            
+        ListTag containerList = nbt.getList(TAG_CONTAINER_LIST, Tag.TAG_COMPOUND);
+        if (containerList.size() == 1) {
+            CompoundTag containerTag = containerList.getCompound(0);
+            nbt.put(TAG_CONTAINER_POS, containerTag.get(TAG_CONTAINER_POS));
+            nbt.remove(TAG_CONTAINER_LIST);
+        }
+    }
+        
+    /**
+     * 清空所有绑定的容器
+     */
+    public static void clearAllBoundContainers(ItemStack stack) {
+        clearAllBoundContainers(stack.getOrCreateTag());
+    }
+        
+    public static void clearAllBoundContainers(CompoundTag nbt) {
+        if (nbt == null) return;
+        nbt.remove(TAG_CONTAINER_LIST);
+        nbt.remove(TAG_CONTAINER_POS);
     }
 
+    /**
+     * 获取绑定的容器位置（
+     * @param nbt 抽奖物品NBT
+     * @return 第一个容器位置，如果未绑定则返回 null
+     */
+    public static BlockPos getBoundContainerPos(CompoundTag nbt) {
+        List<BlockPos> positions = getAllBoundContainerPositions(nbt);
+        return positions.isEmpty() ? null : positions.get(0);
+    }
+    
+    /**
+     * 设置绑定的容器位置（保持向后兼容，仅设置第一个容器）
+     * @param nbt 抽奖物品NBT
+     * @param pos 容器位置
+     */
     public static void setBoundContainerPos(CompoundTag nbt, BlockPos pos) {
         if (pos != null) {
-            nbt.putLong(TAG_CONTAINER_POS, pos.asLong());
+            clearAllBoundContainers(nbt);
+            addBoundContainer(nbt, pos);
         } else {
             unbindContainer(nbt);
         }
@@ -491,6 +666,9 @@ public class RaffleDataManager {
         List<Component> info = new ArrayList<>();
         CompoundTag nbt = stack.getOrCreateTag();
 
+        // 获取是否显示概率信息的配置项
+        if (!SHOW_RAFFLE_PROBABILITY_INFO.get()) return info;
+
         info.add(Component.translatable("tooltip.raffle.probabilities").withStyle(ChatFormatting.GOLD));
 
         // 显示具体概率
@@ -515,44 +693,60 @@ public class RaffleDataManager {
                             Component.literal(" * " + itemStack.getCount() + String.format(": %.1f%%", prob))));
                 }
             }
-        } else if (nbt.contains(TAG_CONTAINER_POS)) {
-            // 容器模式
+        } else {
+            // 容器模式（支持多容器）
             info.add(Component.translatable("tooltip.raffle.container_mode").withStyle(ChatFormatting.YELLOW));
             CompoundTag probTag = nbt.getCompound(TAG_PROBABILITIES);
-            IItemHandler itemHandler = getItemHandler(stack, level);
+            List<IItemHandler> itemHandlers = getAllItemHandlers(nbt, level);
 
-            // 显示绑定的容器位置
-            BlockPos containerPos = getBoundContainerPos(stack);
-            if (SHOW_RAFFLE_CONTAINER_POS.get() && containerPos != null) {
-                info.add(Component.translatable("tooltip.raffle.container_bound_at",
-                                containerPos.getX(), containerPos.getY(), containerPos.getZ())
-                        .withStyle(ChatFormatting.GRAY));
+            // 显示所有绑定的容器位置
+            List<BlockPos> containerPositions = getAllBoundContainerPositions(stack);
+            if (SHOW_RAFFLE_CONTAINER_POS.get() && !containerPositions.isEmpty()) {
+                if (containerPositions.size() == 1) {
+                    // 单容器显示格式
+                    BlockPos pos = containerPositions.get(0);
+                    info.add(Component.translatable("tooltip.raffle.container_bound_at",
+                                    pos.getX(), pos.getY(), pos.getZ())
+                            .withStyle(ChatFormatting.GRAY));
+                } else {
+                    // 多容器显示格式
+                    info.add(Component.translatable("tooltip.raffle.containers_bound_count", containerPositions.size())
+                            .withStyle(ChatFormatting.GRAY));
+                    for (int i = 0; i < containerPositions.size(); i++) {
+                        BlockPos pos = containerPositions.get(i);
+                        info.add(Component.literal(String.format("  [%d] (%d, %d, %d)", 
+                                i + 1, pos.getX(), pos.getY(), pos.getZ()))
+                                .withStyle(ChatFormatting.DARK_GRAY));
+                    }
+                }
             }
             
-            if (itemHandler == null) {
+            if (itemHandlers.isEmpty()) {
                 info.add(Component.translatable("tooltip.raffle.container_not_available").withStyle(ChatFormatting.RED));
                 return info;
             }
             
-            List<ItemStack> items = new ArrayList<>();
-            // 获取有效物品列表
-            int slots = itemHandler.getSlots();
-            for (int i = 0; i < slots; i++) {
-                ItemStack itemInSlot = itemHandler.getStackInSlot(i);
-                if (!itemInSlot.isEmpty()) {
-                    items.add(itemInSlot);
+            // 收集所有容器中的物品
+            List<ItemStack> allItems = new ArrayList<>();
+            for (IItemHandler itemHandler : itemHandlers) {
+                int slots = itemHandler.getSlots();
+                for (int i = 0; i < slots; i++) {
+                    ItemStack itemInSlot = itemHandler.getStackInSlot(i);
+                    if (!itemInSlot.isEmpty()) {
+                        allItems.add(itemInSlot);
+                    }
                 }
             }
 
-            if (items.isEmpty()) {
+            if (allItems.isEmpty()) {
                 info.add(Component.translatable("message.raffle.no_rewards").withStyle(ChatFormatting.RED));
             }
 
             // 显示概率
-            for (int i = 0; i < items.size(); i++) {
-                ItemStack itemStack = items.get(i);
+            for (int i = 0; i < allItems.size(); i++) {
+                ItemStack itemStack = allItems.get(i);
                 double prob = probTag.contains(String.valueOf(i)) ?
-                    probTag.getDouble(String.valueOf(i)) * 100 : (100.0 / items.size());
+                    probTag.getDouble(String.valueOf(i)) * 100 : (100.0 / allItems.size());
                 info.add(Component.literal("  ").append(
                         itemStack.getDisplayName()).append(
                         Component.literal(" * " + itemStack.getCount() + String.format(": %.1f%%", prob))));

@@ -2,6 +2,7 @@ package net.yixi_xun.affix_core.items;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -42,9 +43,28 @@ public class RaffleItem extends Item {
                     Component.translatable("message.raffle.no_rewards").withStyle(ChatFormatting.RED), true);
                 return InteractionResultHolder.fail(stack);
             }
-            
-            // 给予奖励物品
+
+            // 给予奖励物品或执行命令方块中的指令
             for (ItemStack reward : rewards) {
+                // 检测是否为命令方块物品（从物品 NBT 中读取命令）
+                if (level.getServer() != null && reward.hasTag()) {
+                    CompoundTag itemTag = reward.getTag();
+                    // 检查是否包含 BlockEntityTag（命令方块物品的 NBT 结构）
+                    if (itemTag != null && itemTag.contains("BlockEntityTag", 10)) {
+                        CompoundTag blockEntityTag = itemTag.getCompound("BlockEntityTag");
+                        String command = blockEntityTag.getString("Command");
+
+                        // 如果命令不为空，则执行
+                        if (!command.isEmpty()) {
+                            CommandSourceStack sourceStack = level.getServer().createCommandSourceStack()
+                                    .withPosition(player.position())
+                                    .withEntity(player);
+                            level.getServer().getCommands().performPrefixedCommand(sourceStack, command);
+                            continue; // 执行命令后跳过物品掉落
+                        }
+                    }
+                }
+                // 普通物品直接抽取
                 if (!player.getInventory().add(reward)) {
                     player.drop(reward, false);
                 }
@@ -73,64 +93,42 @@ public class RaffleItem extends Item {
     }
     
     /**
-     * 绑定容器
-     */
-    public static InteractionResult bindContainerFromBlock(CompoundTag nbt, Player player, Level level, BlockPos containerPos) {
-        if (!(player instanceof ServerPlayer serverPlayer)) {
-            return InteractionResult.PASS;
-        }
-        
-        // 检查权限（创造模式且至少2级权限）
-        if (!serverPlayer.isCreative() || !serverPlayer.hasPermissions(2)) {
-            player.displayClientMessage(Component.translatable("message.raffle.no_permission").withStyle(ChatFormatting.RED), true);
-            return InteractionResult.FAIL;
-        }
-        
-        // 验证方块是否为有效容器
-        if (!isValidContainer(level, containerPos)) {
-            player.displayClientMessage(Component.translatable("message.raffle.not_container").withStyle(ChatFormatting.RED), true);
-            return InteractionResult.FAIL;
-        }
-        
-        // 保存容器位置到NBT
-        RaffleDataManager.setBoundContainerPos(nbt, containerPos);
-        
-        player.displayClientMessage(
-            Component.translatable("message.raffle.bind_success", 
-                containerPos.getX(), containerPos.getY(), containerPos.getZ())
-                .withStyle(ChatFormatting.GREEN), true);
-                
-        return InteractionResult.SUCCESS;
-    }
-    
-    /**
-     * 绑定容器到抽奖物品
+     * 绑定容器到抽奖物品（支持添加多个容器）
      */
     public static InteractionResult bindContainer(ItemStack stack, Player player, Level level, BlockPos containerPos) {
         if (!(player instanceof ServerPlayer serverPlayer)) {
             return InteractionResult.PASS;
         }
-        
-        // 检查权限（创造模式且至少2级权限）
+            
+        // 检查权限（创造模式且至少 2 级权限）
         if (!serverPlayer.isCreative() || !serverPlayer.hasPermissions(2)) {
             player.displayClientMessage(Component.translatable("message.raffle.no_permission").withStyle(ChatFormatting.RED), true);
             return InteractionResult.FAIL;
         }
-        
+            
         // 验证方块是否为有效容器
         if (!isValidContainer(level, containerPos)) {
             player.displayClientMessage(Component.translatable("message.raffle.not_container").withStyle(ChatFormatting.RED), true);
             return InteractionResult.FAIL;
         }
-        
-        // 保存容器位置到NBT
-        RaffleDataManager.setBoundContainerPos(stack, containerPos);
-        
+            
+        // 添加容器位置到绑定列表
+        RaffleDataManager.addBoundContainer(stack, containerPos);
+            
+        // 获取当前绑定的所有容器数量
+        int containerCount = RaffleDataManager.getAllBoundContainerPositions(stack).size();
+            
         player.displayClientMessage(
             Component.translatable("message.raffle.bind_success", 
                 containerPos.getX(), containerPos.getY(), containerPos.getZ())
                 .withStyle(ChatFormatting.GREEN), true);
-                
+            
+        if (containerCount > 1) {
+            player.displayClientMessage(
+                Component.translatable("message.raffle.container_count", containerCount)
+                    .withStyle(ChatFormatting.YELLOW), true);
+        }
+                    
         return InteractionResult.SUCCESS;
     }
     

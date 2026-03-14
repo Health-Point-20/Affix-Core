@@ -1,16 +1,24 @@
 package net.yixi_xun.affix_core.affix.operation;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.yixi_xun.affix_core.affix.AffixContext;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
+
 /**
- * 修改伤害操作，在攻击或受伤事件中修改伤害值
+ * 修改伤害操作
  */
 public class ModifyDamageOperation extends BaseOperation {
 
     private final String amountExpression;
     private final MathOperation operation;
+    private final Map<LivingEntity, Double> damageModifiers = new WeakHashMap<>();
 
     public ModifyDamageOperation(String amountExpression, String operation) {
         this.amountExpression = amountExpression != null ? amountExpression : "damage";
@@ -23,22 +31,32 @@ public class ModifyDamageOperation extends BaseOperation {
             return;
         }
         
-        // 只在攻击事件中生效
-        String trigger = context.getTrigger() != null ? context.getTrigger().toString() : "";
-        if (trigger == null || (!trigger.contains("on_attack") && !trigger.contains("on_hurt"))) {
-            return;
+        // 在攻击事件中立即生效
+        List<String> trigger = Arrays.asList(context.getAffix().trigger().split(","));
+        if ((trigger.contains("on_attack") || trigger.contains("on_hurt"))) {
+           if ((context.getEvent() instanceof LivingHurtEvent event)) {
+               float originalAmount = event.getAmount();
+               float calculatedValue = (float) evaluateOrDefaultValue(amountExpression, context.getVariables(), originalAmount);
+               float newValue = operation.apply(originalAmount, calculatedValue);
+               event.setAmount(newValue);
+            }
+        } else {
+            // 非攻击事件中添加伤害修改器
+            damageModifiers.put(context.getOwner(), evaluateOrDefaultValue(amountExpression, context.getVariables(), 0));
         }
+    }
 
-        if (!(context.getEvent() instanceof LivingHurtEvent event)) {
-            return;
+    @SubscribeEvent
+    public void onLivingHurt(LivingHurtEvent event) {
+        LivingEntity entity = event.getEntity();
+        Double modifier = damageModifiers.get(entity);
+        if (modifier != null) {
+            float originalAmount = event.getAmount();
+            float calculatedValue = (float) modifier.doubleValue();
+            float newValue = operation.apply(originalAmount, calculatedValue);
+            event.setAmount(newValue);
         }
-
-        // 移除 try-catch 块，因为 ExpressionHelper 已经处理了表达式异常
-        float originalAmount = event.getAmount();
-        float calculatedValue = (float) evaluateOrDefaultValue(amountExpression, context.getVariables(), originalAmount);
-        float newValue = operation.apply(originalAmount, calculatedValue);
-        event.setAmount(newValue);
-        // 移除 catch 块
+        damageModifiers.remove(entity);
     }
 
     @Override

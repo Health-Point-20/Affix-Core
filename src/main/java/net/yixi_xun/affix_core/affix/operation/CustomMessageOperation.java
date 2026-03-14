@@ -16,7 +16,7 @@ public class CustomMessageOperation extends BaseOperation {
 
     public CustomMessageOperation(String message, String target) {
         this.message = message != null ? message : "default_message";
-        this.target = target != null ? target : "self";
+        this.target = target;
     }
 
     @Override
@@ -60,7 +60,7 @@ public class CustomMessageOperation extends BaseOperation {
      */
     public static CustomMessageOperation fromNBT(CompoundTag nbt) {
         String message = nbt.contains("Message") ? nbt.getString("Message") : "default_message";
-        String target = nbt.contains("Target") ? nbt.getString("Target") : "self";
+        String target = nbt.contains("Target") ? nbt.getString("Target") : "owner";
 
         return new CustomMessageOperation(message, target);
     }

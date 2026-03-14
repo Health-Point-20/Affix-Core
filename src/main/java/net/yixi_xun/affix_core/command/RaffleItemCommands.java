@@ -84,7 +84,15 @@ public class RaffleItemCommands {
                         .then(Commands.literal("items")
                                 .executes(RaffleItemCommands::clearItemList))
                         .then(Commands.literal("container")
-                                .executes(RaffleItemCommands::unbindContainer))
+                                .executes(RaffleItemCommands::unbindContainer)))
+                .then(Commands.literal("add_container")
+                        .then(Commands.argument("pos", BlockPosArgument.blockPos())
+                                .executes(RaffleItemCommands::addContainer)))
+                .then(Commands.literal("remove_container")
+                        .then(Commands.argument("pos", BlockPosArgument.blockPos())
+                                .executes(RaffleItemCommands::removeContainer)))
+                .then(Commands.literal("list_containers")
+                        .executes(RaffleItemCommands::listContainers)
                 )
                 .then(Commands.literal("info")
                         .executes(RaffleItemCommands::showRaffleInfo)
@@ -361,6 +369,122 @@ public class RaffleItemCommands {
             }
         } catch (Exception e) {
             ctx.getSource().sendFailure(Component.literal("初始化出现异常"));
+            return 0;
+        }
+    }
+
+    /**
+     * 添加容器到绑定列表
+     */
+    private static int addContainer(CommandContext<CommandSourceStack> ctx) {
+        try {
+            CommandSourceStack source = ctx.getSource();
+            ServerPlayer player = source.getPlayerOrException();
+            BlockPos pos = BlockPosArgument.getLoadedBlockPos(ctx, "pos");
+            Level level = source.getLevel();
+
+            ItemStack mainHand = player.getMainHandItem();
+            if (!(mainHand.getItem() instanceof RaffleItem || mainHand.getItem() instanceof RaffleBlockItem)) {
+                source.sendFailure(Component.translatable("command.raffle.not_raffle_item_hand"));
+                return 0;
+            }
+
+            // 验证是否为有效容器
+            BlockEntity blockEntity = level.getBlockEntity(pos);
+            if (blockEntity == null) {
+                source.sendFailure(Component.translatable("command.raffle.no_block_entity", pos.toShortString()));
+                return 0;
+            }
+
+            var itemHandlerOpt = blockEntity.getCapability(ForgeCapabilities.ITEM_HANDLER).resolve();
+            if (itemHandlerOpt.isEmpty()) {
+                source.sendFailure(Component.translatable("command.raffle.not_container", pos.toShortString()));
+                return 0;
+            }
+
+            // 添加容器
+            RaffleDataManager.addBoundContainer(mainHand, pos);
+            int containerCount = RaffleDataManager.getAllBoundContainerPositions(mainHand).size();
+
+            source.sendSuccess(() ->
+                    Component.translatable("message.raffle.bind_success", 
+                            pos.getX(), pos.getY(), pos.getZ())
+                            .withStyle(ChatFormatting.GREEN), true);
+            
+            if (containerCount > 1) {
+                source.sendSuccess(() ->
+                        Component.translatable("message.raffle.container_count", containerCount)
+                                .withStyle(ChatFormatting.YELLOW), true);
+            }
+
+            return 1;
+        } catch (Exception e) {
+            ctx.getSource().sendFailure(Component.literal("Error: " + e.getMessage()));
+            return 0;
+        }
+    }
+
+    /**
+     * 从绑定列表中移除容器
+     */
+    private static int removeContainer(CommandContext<CommandSourceStack> ctx) {
+        try {
+            CommandSourceStack source = ctx.getSource();
+            ServerPlayer player = source.getPlayerOrException();
+            BlockPos pos = BlockPosArgument.getLoadedBlockPos(ctx, "pos");
+
+            ItemStack mainHand = player.getMainHandItem();
+            if (!(mainHand.getItem() instanceof RaffleItem || mainHand.getItem() instanceof RaffleBlockItem)) {
+                source.sendFailure(Component.translatable("command.raffle.not_raffle_item_hand"));
+                return 0;
+            }
+
+            // 移除容器
+            RaffleDataManager.removeBoundContainer(mainHand, pos);
+            source.sendSuccess(() ->
+                    Component.literal("已成功移除容器坐标：" + pos.toShortString())
+                            .withStyle(ChatFormatting.GREEN), true);
+
+            return 1;
+        } catch (Exception e) {
+            ctx.getSource().sendFailure(Component.literal("Error: " + e.getMessage()));
+            return 0;
+        }
+    }
+
+    /**
+     * 列出所有绑定的容器
+     */
+    private static int listContainers(CommandContext<CommandSourceStack> ctx) {
+        try {
+            CommandSourceStack source = ctx.getSource();
+            ServerPlayer player = source.getPlayerOrException();
+            ItemStack mainHand = player.getMainHandItem();
+
+            if (!(mainHand.getItem() instanceof RaffleItem || mainHand.getItem() instanceof RaffleBlockItem)) {
+                source.sendFailure(Component.translatable("command.raffle.not_raffle_item_hand"));
+                return 0;
+            }
+
+            List<BlockPos> containers = RaffleDataManager.getAllBoundContainerPositions(mainHand);
+            
+            if (containers.isEmpty()) {
+                source.sendFailure(Component.literal("未绑定任何容器"));
+                return 0;
+            }
+
+            source.sendSuccess(() -> Component.literal("=== 绑定的容器列表 ===").withStyle(ChatFormatting.GOLD), false);
+            for (int i = 0; i < containers.size(); i++) {
+                BlockPos pos = containers.get(i);
+                int finalI = i;
+                source.sendSuccess(() -> Component.literal(String.format("[%d] (%d, %d, %d)",
+                        finalI + 1, pos.getX(), pos.getY(), pos.getZ()))
+                        .withStyle(ChatFormatting.GREEN), false);
+            }
+
+            return containers.size();
+        } catch (Exception e) {
+            ctx.getSource().sendFailure(Component.literal("Error: " + e.getMessage()));
             return 0;
         }
     }

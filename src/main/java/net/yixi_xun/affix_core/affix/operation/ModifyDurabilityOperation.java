@@ -9,6 +9,7 @@ import net.yixi_xun.affix_core.affix.AffixContext;
  */
 public class ModifyDurabilityOperation extends BaseOperation {
 
+    private final String target;
     private final String amountExpression;
     private final OperationType operation;
 
@@ -29,7 +30,8 @@ public class ModifyDurabilityOperation extends BaseOperation {
         }
     }
 
-    public ModifyDurabilityOperation(String amountExpression, String operation) {
+    public ModifyDurabilityOperation(String target, String amountExpression, String operation) {
+        this.target = target;
         this.amountExpression = amountExpression != null ? amountExpression : "durability";
         this.operation = OperationType.fromString(operation);
     }
@@ -39,22 +41,22 @@ public class ModifyDurabilityOperation extends BaseOperation {
         if (context == null) {
             return;
         }
-        
-        ItemStack itemStack = context.getItemStack();
-        if (itemStack == null || itemStack.isEmpty()) {
+
+        ItemStack stack = getTargetItem(context, target);
+        if (stack == null || stack.isEmpty()) {
             return;
         }
 
-        setupDurationVariables(context, itemStack);
+        setupDurationVariables(context, stack);
         
         switch (operation) {
             case DURATION -> {
-                int newDamage = itemStack.getMaxDamage() - (int) evaluateOrDefaultValue(amountExpression, context.getVariables(), 0.0);
-                itemStack.setDamageValue(Math.max(0, Math.min(newDamage, itemStack.getMaxDamage())));
+                int newDamage = stack.getMaxDamage() - (int) evaluateOrDefaultValue(amountExpression, context.getVariables(), 0.0);
+                stack.setDamageValue(Math.max(0, Math.min(newDamage, stack.getMaxDamage())));
             }
             case MAX_DURATION -> {
-                int newMaxDurability = (int) evaluateOrDefaultValue(amountExpression, context.getVariables(), itemStack.getMaxDamage());
-                itemStack.getOrCreateTag().putInt("Affix_Durability", Math.max(1, newMaxDurability));
+                int newMaxDurability = (int) evaluateOrDefaultValue(amountExpression, context.getVariables(), stack.getMaxDamage());
+                stack.getOrCreateTag().putInt("Affix_Durability", Math.max(1, newMaxDurability));
             }
         }
     }
@@ -85,6 +87,7 @@ public class ModifyDurabilityOperation extends BaseOperation {
     public CompoundTag toNBT() {
         CompoundTag nbt = new CompoundTag();
         nbt.putString("Type", getType());
+        nbt.putString("Target", target);
         nbt.putString("AmountExpression", amountExpression);
         nbt.putString("Operation", operation.getName());
         return nbt;
@@ -99,10 +102,11 @@ public class ModifyDurabilityOperation extends BaseOperation {
      * 工厂方法，从NBT创建ModifyDurationOperation
      */
     public static ModifyDurabilityOperation fromNBT(CompoundTag nbt) {
+        String target = nbt.contains("Target") ? nbt.getString("Target") : "owner.self";
         String amountExpression = nbt.contains("AmountExpression") ? nbt.getString("AmountExpression") : "durability";
         String operation = nbt.contains("Operation") ? nbt.getString("Operation") : "durability";
 
-        return new ModifyDurabilityOperation(amountExpression, operation);
+        return new ModifyDurabilityOperation(target, amountExpression, operation);
     }
 
     /**

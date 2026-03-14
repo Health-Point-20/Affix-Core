@@ -203,14 +203,14 @@ public class AttributeOperation extends BaseOperation {
         String attributeStr = nbt.contains("Attribute") ? nbt.getString("Attribute") : "generic.attack_damage";
         ResourceLocation attributeId = ResourceLocation.tryParse(attributeStr);
 
-        String amountExpression = nbt.contains("AmountExpression") ? nbt.getString("AmountExpression") : "0";
+        String amountExpression = getStringOrDefaultValue(nbt, "AmountExpression", "1");
         int operationInt = nbt.contains("Operation") ? nbt.getInt("Operation") : 0;
         AttributeModifier.Operation operation = AttributeModifier.Operation.fromValue(operationInt);
 
-        String name = nbt.contains("Name") ? nbt.getString("Name") : "Affix Attribute Modifier";
+        String name = getStringOrDefaultValue(nbt, "Name", "Affix Attribute Modifier");
         boolean isPermanent = nbt.contains("IsPermanent") && nbt.getBoolean("IsPermanent");
-        String durationExpression = nbt.contains("DurationExpression") ? nbt.getString("DurationExpression") : "100";
-        String target = nbt.contains("Target") ? nbt.getString("Target") : "self";
+        String durationExpression = getStringOrDefaultValue(nbt, "DurationExpression", "100");
+        String target = getStringOrDefaultValue(nbt, "Target", "owner");
         boolean shouldRemove = !nbt.contains("ShouldRemove") || nbt.getBoolean("ShouldRemove");
 
         return new AttributeOperation(attributeId, amountExpression, operation, name, isPermanent, durationExpression, target, shouldRemove);

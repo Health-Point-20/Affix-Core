@@ -21,9 +21,9 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.yixi_xun.affix_core.affix.Affix;
 import net.yixi_xun.affix_core.affix.AffixManager;
-import net.yixi_xun.affix_core.affix.operation.EntityVariableOperation;
 import net.yixi_xun.affix_core.affix.operation.IOperation;
 import net.yixi_xun.affix_core.affix.operation.OperationManager;
+import net.yixi_xun.affix_core.affix.operation.VariableOperation;
 import net.yixi_xun.affix_core.api.AffixEvent;
 
 import java.util.List;
@@ -77,8 +77,9 @@ public class AffixCommands {
                         .then(Commands.literal("help")
                                 .executes(AffixCommands::showHelp))
                         .then(Commands.literal("clear_entity_vars")
-                                .then(Commands.argument("target", EntityArgument.entity()))
-                                .executes(AffixCommands::clearEntityVars))
+                                .then(Commands.argument("target", EntityArgument.entity())
+                                        .executes(context -> clearEntityVars(context, EntityArgument.getEntity(context, "target"))))
+                        )
         );
     }
 
@@ -232,7 +233,16 @@ public class AffixCommands {
             }
 
             // 创建一个默认的词缀对象，包含默认操作
-            Affix defaultAffix = new Affix(UUID.randomUUID() ,"on_attack", "", operation, 0L, -1, null, 0);
+            Affix defaultAffix = new Affix(
+                    UUID.randomUUID() ,
+                    "on_attack",
+                    "",
+                    operation,
+                    0L,
+                    -1,
+                    null,
+                    0,
+                    1);
 
             // 直接将词缀添加到物品上
             AffixManager.addAffix(itemStack, defaultAffix);
@@ -291,9 +301,9 @@ public class AffixCommands {
         }
     }
 
-    private static int clearEntityVars(CommandContext<CommandSourceStack> context) {
-        if (context.getArgument("target", Entity.class) instanceof LivingEntity living) {
-            EntityVariableOperation.clearEntityVariables(living);
+    private static int clearEntityVars(CommandContext<CommandSourceStack> context, Entity entity) {
+        if (entity instanceof LivingEntity living) {
+            VariableOperation.removeEntityVariables(living);
 
             context.getSource().sendSuccess(() -> Component.literal("成功清除目标的实体变量"), true);
             return 1;

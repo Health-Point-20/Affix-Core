@@ -49,7 +49,7 @@ public class AffixManager {
         DisableAffixesOperation.register();
         HealingOperation.register();
         ItemOperation.register();
-        EntityVariableOperation.register();
+        VariableOperation.register();
 
         AffixEvent.RegisterOperationEvent event = new AffixEvent.RegisterOperationEvent();
         MinecraftForge.EVENT_BUS.post(event);
@@ -191,9 +191,11 @@ public class AffixManager {
         if (itemStack == null || !itemStack.hasTag()) {
             return;
         }
+        CompoundTag nbt = itemStack.getOrCreateTag();
 
-        itemStack.getOrCreateTag().remove(AFFIX_TAG_KEY);
-        if (itemStack.getOrCreateTag().isEmpty()) {
+        nbt.remove(AFFIX_TAG_KEY);
+        nbt.remove(ITEM_UUID_NBT_KEY);
+        if (nbt.isEmpty()) {
             itemStack.setTag(null);
         }
         
